@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from django_cb.exceptions import ValidationError
-from django_cb.fields.datetime import DateField, DateTimeField
+from django_couchbase_orm.exceptions import ValidationError
+from django_couchbase_orm.fields.datetime import DateField, DateTimeField
 
 
 class TestDateTimeField:

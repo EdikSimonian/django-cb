@@ -1,6 +1,6 @@
 """Tests for the exceptions module."""
 
-from django_cb.exceptions import (
+from django_couchbase_orm.exceptions import (
     ConnectionError,
     DjangoCbError,
     DocumentDoesNotExist,

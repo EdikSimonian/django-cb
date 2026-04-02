@@ -3,7 +3,7 @@
 SECRET_KEY = "test-secret-key-not-for-production"
 
 INSTALLED_APPS = [
-    "django_cb",
+    "django_couchbase_orm",
 ]
 
 COUCHBASE = {

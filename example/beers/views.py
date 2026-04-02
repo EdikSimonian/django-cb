@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.http import Http404
 from django.shortcuts import redirect, render
 
-from django_cb.queryset.q import Q
+from django_couchbase_orm.queryset.q import Q
 
 from .documents import Beer, Brewery
 
@@ -81,7 +81,7 @@ def login_view(request):
         return redirect("beers:home")
 
     if request.method == "POST":
-        from django_cb.contrib.auth.backend import CouchbaseAuthBackend
+        from django_couchbase_orm.contrib.auth.backend import CouchbaseAuthBackend
 
         # Rate limiting via session
         attempts = request.session.get("_login_attempts", 0)
@@ -102,7 +102,7 @@ def login_view(request):
             request.session.pop("_login_lockout", None)
             request.session["_auth_user_id"] = user.pk
             request.session["_auth_user_backend"] = (
-                "django_cb.contrib.auth.backend.CouchbaseAuthBackend"
+                "django_couchbase_orm.contrib.auth.backend.CouchbaseAuthBackend"
             )
             messages.success(request, f"Welcome back, {user.get_short_name()}!")
             return redirect("beers:home")
@@ -132,7 +132,7 @@ def _get_current_user(request):
     user_id = request.session.get("_auth_user_id")
     if not user_id:
         return None
-    from django_cb.contrib.auth.models import User
+    from django_couchbase_orm.contrib.auth.models import User
 
     try:
         return User.objects.get(pk=user_id)

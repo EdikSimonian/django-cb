@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.test import override_settings
 
-from django_cb.connection import (
+from django_couchbase_orm.connection import (
     _connections,
     _get_config,
     close_connections,
@@ -14,7 +14,7 @@ from django_cb.connection import (
     get_collection,
     reset_connections,
 )
-from django_cb.exceptions import ConnectionError
+from django_couchbase_orm.exceptions import ConnectionError
 
 
 VALID_SETTINGS = {
@@ -83,7 +83,7 @@ class TestResetConnections:
 
 class TestGetCluster:
     @override_settings(COUCHBASE=VALID_SETTINGS)
-    @patch("django_cb.connection.Cluster", create=True)
+    @patch("django_couchbase_orm.connection.Cluster", create=True)
     def test_get_cluster_creates_and_caches(self, mock_cluster_class):
         """Test that get_cluster creates a cluster and caches it."""
         reset_connections()

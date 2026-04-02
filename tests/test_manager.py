@@ -2,9 +2,9 @@
 
 import pytest
 
-from django_cb.document import Document
-from django_cb.exceptions import DocumentDoesNotExist, OperationError
-from django_cb.fields.simple import IntegerField, StringField
+from django_couchbase_orm.document import Document
+from django_couchbase_orm.exceptions import DocumentDoesNotExist, OperationError
+from django_couchbase_orm.fields.simple import IntegerField, StringField
 
 
 # Define test document outside of tests so metaclass runs once
@@ -60,7 +60,7 @@ class TestManagerGet:
 
     def test_get_by_field_delegates_to_queryset(self):
         """Non-pk get() should delegate to QuerySet.get()."""
-        from django_cb.queryset.queryset import QuerySet
+        from django_couchbase_orm.queryset.queryset import QuerySet
 
         qs = ManagerUser.objects.filter(name="Alice")
         assert isinstance(qs, QuerySet)
@@ -81,13 +81,13 @@ class TestManagerCreate:
 
     def test_create_validates(self, patch_collection):
         """create() should validate before saving."""
-        from django_cb.exceptions import ValidationError
+        from django_couchbase_orm.exceptions import ValidationError
 
         with pytest.raises(ValidationError):
             ManagerUser.objects.create(age=25)  # name is required
 
     def test_create_validation_error(self, patch_collection):
-        from django_cb.exceptions import ValidationError
+        from django_couchbase_orm.exceptions import ValidationError
 
         with pytest.raises(ValidationError):
             ManagerUser.objects.create(age=25)  # name is required

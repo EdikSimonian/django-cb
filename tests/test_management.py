@@ -7,8 +7,8 @@ import pytest
 from django.core.management import call_command
 from django.test import override_settings
 
-from django_cb.document import Document
-from django_cb.fields.simple import IntegerField, StringField
+from django_couchbase_orm.document import Document
+from django_couchbase_orm.fields.simple import IntegerField, StringField
 
 
 COUCHBASE_SETTINGS = {
@@ -86,7 +86,7 @@ class TestCbCreateCollections:
     def test_dry_run(self):
         out = StringIO()
         # Need to mock get_bucket since there's no real cluster
-        with patch("django_cb.management.commands.cb_create_collections.get_bucket"):
+        with patch("django_couchbase_orm.management.commands.cb_create_collections.get_bucket"):
             call_command("cb_create_collections", "--dry-run", stdout=out)
         output = out.getvalue()
         assert "DRY RUN" in output or "nothing created" in output.lower()

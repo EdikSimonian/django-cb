@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from django_cb.contrib.auth.models import User
-from django_cb.contrib.auth.backend import CouchbaseAuthBackend
+from django_couchbase_orm.contrib.auth.models import User
+from django_couchbase_orm.contrib.auth.backend import CouchbaseAuthBackend
 
 
 class TestUserModel:

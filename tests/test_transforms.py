@@ -2,8 +2,8 @@
 
 import pytest
 
-from django_cb.query.n1ql import N1QLQuery
-from django_cb.queryset.transform import apply_lookup, parse_lookup
+from django_couchbase_orm.query.n1ql import N1QLQuery
+from django_couchbase_orm.queryset.transform import apply_lookup, parse_lookup
 
 
 class TestParseLookup:

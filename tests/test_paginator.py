@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from django_cb.paginator import CouchbasePaginator, Page
+from django_couchbase_orm.paginator import CouchbasePaginator, Page
 
 
 class MockQuerySet:

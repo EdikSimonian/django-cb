@@ -1,6 +1,6 @@
 """Couchbase document models for the beer-sample bucket."""
 
-from django_cb import Document, StringField, FloatField, IntegerField
+from django_couchbase_orm import Document, StringField, FloatField, IntegerField
 
 
 class Brewery(Document):

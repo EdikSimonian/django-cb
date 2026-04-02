@@ -2,7 +2,7 @@
 
 import pytest
 
-from django_cb.query.n1ql import N1QLQuery
+from django_couchbase_orm.query.n1ql import N1QLQuery
 
 
 class TestN1QLBasic:

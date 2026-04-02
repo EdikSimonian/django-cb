@@ -2,10 +2,10 @@
 
 import pytest
 
-from django_cb.document import Document
-from django_cb.exceptions import ValidationError
-from django_cb.fields.reference import ReferenceField
-from django_cb.fields.simple import StringField
+from django_couchbase_orm.document import Document
+from django_couchbase_orm.exceptions import ValidationError
+from django_couchbase_orm.fields.reference import ReferenceField
+from django_couchbase_orm.fields.simple import StringField
 
 
 class RefBrewery(Document):

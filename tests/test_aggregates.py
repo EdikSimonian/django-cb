@@ -2,7 +2,7 @@
 
 import pytest
 
-from django_cb.aggregates import Avg, Count, Max, Min, Sum, _build_agg_expression
+from django_couchbase_orm.aggregates import Avg, Count, Max, Min, Sum, _build_agg_expression
 
 
 class TestAggregateClasses:

@@ -2,14 +2,14 @@
 
 import pytest
 
-from django_cb.exceptions import ValidationError
-from django_cb.fields.compound import (
+from django_couchbase_orm.exceptions import ValidationError
+from django_couchbase_orm.fields.compound import (
     DictField,
     EmbeddedDocument,
     EmbeddedDocumentField,
     ListField,
 )
-from django_cb.fields.simple import IntegerField, StringField
+from django_couchbase_orm.fields.simple import IntegerField, StringField
 
 
 # ============================================================

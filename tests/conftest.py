@@ -82,13 +82,13 @@ def mock_collection():
 
 @pytest.fixture
 def patch_collection(mock_collection, monkeypatch):
-    """Patch django_cb.connection.get_collection to return the mock collection."""
+    """Patch django_couchbase_orm.connection.get_collection to return the mock collection."""
     monkeypatch.setattr(
-        "django_cb.connection.get_collection",
+        "django_couchbase_orm.connection.get_collection",
         lambda **kwargs: mock_collection,
     )
     monkeypatch.setattr(
-        "django_cb.connection.get_collection",
+        "django_couchbase_orm.connection.get_collection",
         lambda alias="default", scope=None, collection=None: mock_collection,
     )
     return mock_collection

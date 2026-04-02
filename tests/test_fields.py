@@ -4,9 +4,9 @@ import uuid
 
 import pytest
 
-from django_cb.exceptions import ValidationError
-from django_cb.fields.base import BaseField
-from django_cb.fields.simple import (
+from django_couchbase_orm.exceptions import ValidationError
+from django_couchbase_orm.fields.base import BaseField
+from django_couchbase_orm.fields.simple import (
     BooleanField,
     FloatField,
     IntegerField,

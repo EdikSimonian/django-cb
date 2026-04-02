@@ -48,7 +48,7 @@ Repository = "https://github.com/EdikSimonian/django-couchbase-orm"
 Issues = "https://github.com/EdikSimonian/django-couchbase-orm/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/django_cb"]
+packages = ["src/django_couchbase_orm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

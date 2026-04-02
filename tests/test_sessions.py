@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.test import override_settings
 
-from django_cb.contrib.sessions.backend import SessionStore, SESSION_KEY_PREFIX
+from django_couchbase_orm.contrib.sessions.backend import SessionStore, SESSION_KEY_PREFIX
 from tests.conftest import MockCollection, MockCASResult, MockGetResult, MockExistsResult
 
 
@@ -19,7 +19,7 @@ def session_collection():
 @pytest.fixture
 def patch_session_collection(session_collection, monkeypatch):
     monkeypatch.setattr(
-        "django_cb.contrib.sessions.backend.SessionStore._get_collection",
+        "django_couchbase_orm.contrib.sessions.backend.SessionStore._get_collection",
         lambda self: session_collection,
     )
     return session_collection

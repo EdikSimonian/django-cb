@@ -4,7 +4,7 @@ A Django-style ORM for Couchbase. Define models, run queries, and manage documen
 
 **Live Demo:** [django-cb-production.up.railway.app](https://django-cb-production.up.railway.app) | **PyPI:** [django-couchbase-orm](https://pypi.org/project/django-couchbase-orm/)
 
-Works **alongside** Django's built-in ORM — use `django.db.models.Model` for relational data and `django_cb.Document` for Couchbase data in the same project. Or go fully Couchbase with the included session and auth backends.
+Works **alongside** Django's built-in ORM — use `django.db.models.Model` for relational data and `django_couchbase_orm.Document` for Couchbase data in the same project. Or go fully Couchbase with the included session and auth backends.
 
 ## Features
 
@@ -44,7 +44,7 @@ pip install django-couchbase-orm
 # settings.py
 INSTALLED_APPS = [
     ...
-    "django_cb",
+    "django_couchbase_orm",
 ]
 
 COUCHBASE = {
@@ -61,7 +61,7 @@ COUCHBASE = {
 ### 2. Define documents
 
 ```python
-from django_cb import Document, StringField, IntegerField, FloatField, BooleanField, DateTimeField
+from django_couchbase_orm import Document, StringField, IntegerField, FloatField, BooleanField, DateTimeField
 
 class Brewery(Document):
     name = StringField(required=True)
@@ -142,7 +142,7 @@ Beer.objects.filter(name__regex="^[A-Z].*IPA$")
 Beer.objects.exclude(abv__lt=4.0)
 
 # Q objects for complex queries
-from django_cb import Q
+from django_couchbase_orm import Q
 Beer.objects.filter(Q(style="IPA") | Q(style="Pale Ale"))
 Beer.objects.filter(Q(abv__gte=7) & ~Q(name__contains="Light"))
 
@@ -194,7 +194,7 @@ for beer in Beer.objects.filter(abv__gte=10).iterator():
 ## Embedded Documents
 
 ```python
-from django_cb import EmbeddedDocument, EmbeddedDocumentField, StringField
+from django_couchbase_orm import EmbeddedDocument, EmbeddedDocumentField, StringField
 
 class Address(EmbeddedDocument):
     street = StringField()
@@ -244,7 +244,7 @@ brewery.subdoc.multi_mutate(
 ## Signals
 
 ```python
-from django_cb.signals import pre_save, post_save, pre_delete, post_delete
+from django_couchbase_orm.signals import pre_save, post_save, pre_delete, post_delete
 
 def on_brewery_save(sender, instance, created, **kwargs):
     if created:
@@ -259,7 +259,7 @@ Store Django sessions in Couchbase with automatic TTL expiry:
 
 ```python
 # settings.py
-SESSION_ENGINE = "django_cb.contrib.sessions.backend"
+SESSION_ENGINE = "django_couchbase_orm.contrib.sessions.backend"
 
 # Optional: customize session storage location
 COUCHBASE_SESSION = {
@@ -275,12 +275,12 @@ Authenticate users against Couchbase-stored User documents:
 ```python
 # settings.py
 AUTHENTICATION_BACKENDS = [
-    "django_cb.contrib.auth.backend.CouchbaseAuthBackend",
+    "django_couchbase_orm.contrib.auth.backend.CouchbaseAuthBackend",
 ]
 ```
 
 ```python
-from django_cb.contrib.auth.models import User
+from django_couchbase_orm.contrib.auth.models import User
 
 # Create users
 user = User.create_user("alice", "alice@example.com", "secret123")
@@ -335,15 +335,15 @@ If you don't use Django admin or permissions, you can drop the relational databa
 
 ```python
 INSTALLED_APPS = [
-    "django_cb",
+    "django_couchbase_orm",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # your apps
 ]
 
-SESSION_ENGINE = "django_cb.contrib.sessions.backend"
+SESSION_ENGINE = "django_couchbase_orm.contrib.sessions.backend"
 AUTHENTICATION_BACKENDS = [
-    "django_cb.contrib.auth.backend.CouchbaseAuthBackend",
+    "django_couchbase_orm.contrib.auth.backend.CouchbaseAuthBackend",
 ]
 
 # No DATABASES setting needed
@@ -352,7 +352,7 @@ AUTHENTICATION_BACKENDS = [
 ## Aggregation
 
 ```python
-from django_cb import Avg, Count, Max, Min, Sum
+from django_couchbase_orm import Avg, Count, Max, Min, Sum
 
 Beer.objects.filter(style="IPA").aggregate(
     avg_abv=Avg("abv"),
@@ -365,7 +365,7 @@ Beer.objects.filter(style="IPA").aggregate(
 ## Pagination
 
 ```python
-from django_cb import CouchbasePaginator
+from django_couchbase_orm import CouchbasePaginator
 
 paginator = CouchbasePaginator(Beer.objects.filter(abv__gte=5), per_page=20)
 page = paginator.page(1)

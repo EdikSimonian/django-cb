@@ -61,7 +61,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_cb',
+    'django_couchbase_orm',
     'beers',
 ]
 
@@ -170,11 +170,11 @@ COUCHBASE = {
 TEMPLATES[0]['DIRS'] = [BASE_DIR / 'templates']
 
 # Couchbase Session Backend
-SESSION_ENGINE = "django_cb.contrib.sessions.backend"
+SESSION_ENGINE = "django_couchbase_orm.contrib.sessions.backend"
 
 # Couchbase Auth Backend
 AUTHENTICATION_BACKENDS = [
-    "django_cb.contrib.auth.backend.CouchbaseAuthBackend",
+    "django_couchbase_orm.contrib.auth.backend.CouchbaseAuthBackend",
 ]
 
 LOGIN_URL = "/login/"

@@ -2,9 +2,9 @@
 
 import pytest
 
-from django_cb.document import Document
-from django_cb.exceptions import OperationError, ValidationError
-from django_cb.fields.simple import IntegerField, StringField
+from django_couchbase_orm.document import Document
+from django_couchbase_orm.exceptions import OperationError, ValidationError
+from django_couchbase_orm.fields.simple import IntegerField, StringField
 
 
 class BulkDoc(Document):

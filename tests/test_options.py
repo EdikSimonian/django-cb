@@ -2,8 +2,8 @@
 
 import pytest
 
-from django_cb.fields.simple import IntegerField, StringField
-from django_cb.options import DocumentOptions
+from django_couchbase_orm.fields.simple import IntegerField, StringField
+from django_couchbase_orm.options import DocumentOptions
 
 
 class TestDocumentOptions:

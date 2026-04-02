@@ -4,10 +4,10 @@ import pytest
 from django.test import override_settings
 from unittest.mock import patch, MagicMock
 
-from django_cb.document import Document
-from django_cb.fields.simple import IntegerField, StringField, FloatField, BooleanField
-from django_cb.queryset.q import Q
-from django_cb.queryset.queryset import QuerySet
+from django_couchbase_orm.document import Document
+from django_couchbase_orm.fields.simple import IntegerField, StringField, FloatField, BooleanField
+from django_couchbase_orm.queryset.q import Q
+from django_couchbase_orm.queryset.queryset import QuerySet
 
 
 COUCHBASE_SETTINGS = {

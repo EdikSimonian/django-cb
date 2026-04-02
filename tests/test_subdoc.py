@@ -3,10 +3,10 @@
 import pytest
 from unittest.mock import MagicMock, patch, call
 
-from django_cb.document import Document
-from django_cb.fields.simple import StringField, IntegerField
-from django_cb.query.subdoc import SubDocAccessor
-from django_cb.exceptions import OperationError
+from django_couchbase_orm.document import Document
+from django_couchbase_orm.fields.simple import StringField, IntegerField
+from django_couchbase_orm.query.subdoc import SubDocAccessor
+from django_couchbase_orm.exceptions import OperationError
 
 
 class SubDocTestDoc(Document):

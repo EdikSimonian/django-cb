@@ -5,14 +5,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from django_cb.document import Document, _document_registry, get_document_registry
-from django_cb.exceptions import (
+from django_couchbase_orm.document import Document, _document_registry, get_document_registry
+from django_couchbase_orm.exceptions import (
     DocumentDoesNotExist,
     MultipleDocumentsReturned,
     OperationError,
     ValidationError,
 )
-from django_cb.fields.simple import BooleanField, FloatField, IntegerField, StringField, UUIDField
+from django_couchbase_orm.fields.simple import BooleanField, FloatField, IntegerField, StringField, UUIDField
 
 
 # ============================================================

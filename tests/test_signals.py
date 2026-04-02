@@ -2,9 +2,9 @@
 
 import pytest
 
-from django_cb.document import Document
-from django_cb.fields.simple import StringField, IntegerField
-from django_cb.signals import pre_save, post_save, pre_delete, post_delete
+from django_couchbase_orm.document import Document
+from django_couchbase_orm.fields.simple import StringField, IntegerField
+from django_couchbase_orm.signals import pre_save, post_save, pre_delete, post_delete
 
 
 class SignalDoc(Document):
