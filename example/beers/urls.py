@@ -9,6 +9,8 @@ urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
 
+    path("migrations/", views.migration_status, name="migration_status"),
+
     path("breweries/", views.brewery_list, name="brewery_list"),
     path("breweries/create/", views.brewery_create, name="brewery_create"),
     re_path(r"^breweries/(?P<brewery_id>.+)/edit/$", views.brewery_edit, name="brewery_edit"),

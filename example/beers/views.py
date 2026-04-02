@@ -8,6 +8,9 @@ from django.shortcuts import redirect, render
 
 from django_couchbase_orm.queryset.q import Q
 
+from django_couchbase_orm.migrations.executor import MigrationLoader
+from django_couchbase_orm.migrations.state import MigrationState
+
 from .documents import Beer, Brewery
 
 # Simple in-memory cache for expensive queries that rarely change
@@ -319,6 +322,40 @@ def beer_detail(request, beer_id):
 # ============================================================
 # CRUD views (login required)
 # ============================================================
+
+
+def migration_status(request):
+    """Show migration status — demonstrates the migration framework."""
+    loader = MigrationLoader()
+    try:
+        state = MigrationState.load()
+    except Exception:
+        state = MigrationState()
+
+    order = loader.resolve_order()
+    migrations = []
+    for key in order:
+        app_label, name = key.split("::")
+        migration = loader.migrations[key]
+        applied = state.is_applied(app_label, name)
+        ops = [op.describe() for op in migration.operations]
+        migrations.append({
+            "key": key,
+            "app_label": app_label,
+            "name": name,
+            "applied": applied,
+            "reversible": migration.is_reversible,
+            "operations": ops,
+        })
+
+    applied_count = sum(1 for m in migrations if m["applied"])
+    return render(request, "beers/migration_status.html", {
+        "migrations": migrations,
+        "total": len(migrations),
+        "applied_count": applied_count,
+        "pending_count": len(migrations) - applied_count,
+        "cb_user": _get_current_user(request),
+    })
 
 
 @_login_required

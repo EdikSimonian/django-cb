@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0 (2026-04-02)
+
+### New Features
+
+- **Migrations framework**: Django-style migrations for Couchbase with auto-detection, dependency resolution, and reversibility
+  - **12 operations**: `CreateScope`, `DropScope`, `CreateCollection`, `DropCollection`, `CreateIndex`, `DropIndex`, `AddField`, `RemoveField`, `RenameField`, `AlterField`, `RunN1QL`, `RunPython`
+  - **Auto-detection**: `cb_makemigrations` diffs current Document classes against stored state to generate operations automatically
+  - **Dependency resolution**: Topological sort with circular dependency detection, cross-app dependencies
+  - **Migration state**: Tracked in Couchbase document (`_cb_migrations`), no relational DB needed
+  - **Migration writer**: Generates valid Python migration files with proper imports
+  - **Reversibility**: Forward and reverse operations, with guards against irreversible rollbacks
+  - **Fake migrations**: `--fake` flag to mark migrations as applied without executing
+- **Management commands**: `cb_makemigrations` and `cb_migrate` with `--dry-run`, `--empty`, `--initial`, `--list`, `--fake` flags
+- **Example app**: Migration status page with nav link, sample migration file with 5 indexes
+
+### Stats
+
+- 784 tests (745 unit + 39 integration), 188 new migration tests
+- All CI jobs green: lint, test (Python 3.10-3.13), integration, build
+
 ## 0.5.0 (2026-04-02)
 
 ### New Features

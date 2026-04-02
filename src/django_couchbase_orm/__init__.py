@@ -1,6 +1,6 @@
 """django-couchbase-orm: A Couchbase ORM for Django applications."""
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 from django_couchbase_orm.aggregates import Avg, Count, Max, Min, Sum
 from django_couchbase_orm.document import Document
@@ -25,6 +25,8 @@ from django_couchbase_orm.fields.simple import (
     StringField,
     UUIDField,
 )
+from django_couchbase_orm.migrations import Migration, MigrationState
+from django_couchbase_orm.migrations.operations import RunN1QL, RunPython
 from django_couchbase_orm.paginator import CouchbasePaginator
 from django_couchbase_orm.queryset.q import Q
 
@@ -53,4 +55,8 @@ __all__ = [
     "Sum",
     "StringField",
     "UUIDField",
+    "Migration",
+    "MigrationState",
+    "RunN1QL",
+    "RunPython",
 ]

@@ -28,7 +28,8 @@ Works **alongside** Django's built-in ORM — use `django.db.models.Model` for r
 - `select_related()` for ReferenceField prefetching
 - `CouchbasePaginator` with Django-style Page objects
 - `bulk_create()` and `bulk_update()` for batch operations
-- Management commands: `cb_ensure_indexes`, `cb_create_collections`
+- **Migrations framework**: auto-detect changes, generate migration files, apply/revert with dependency resolution
+- Management commands: `cb_ensure_indexes`, `cb_create_collections`, `cb_makemigrations`, `cb_migrate`
 
 ## Requirements
 
@@ -496,9 +497,125 @@ for beer in beers:
     print(beer._prefetched["brewery"].name)
 ```
 
+## Migrations
+
+Django-style migrations for Couchbase — track schema changes, create indexes, transform data, and roll back safely.
+
+### Quick start
+
+```bash
+# Auto-detect Document changes and generate a migration file
+python manage.py cb_makemigrations
+
+# Apply all pending migrations
+python manage.py cb_migrate
+
+# Show migration status
+python manage.py cb_migrate --list
+
+# Revert to a specific migration
+python manage.py cb_migrate myapp 0001_initial
+```
+
+### Writing migrations
+
+Migration files live in `<your_app>/cb_migrations/` and look like Django migrations:
+
+```python
+from django_couchbase_orm.migrations import Migration as BaseMigration
+from django_couchbase_orm.migrations.operations import (
+    CreateCollection, CreateIndex, AddField, RenameField, RunPython,
+)
+
+class Migration(BaseMigration):
+    app_label = 'myapp'
+    name = '0001_initial'
+    dependencies = []
+
+    operations = [
+        CreateCollection('beers', scope_name='brewing'),
+        CreateIndex(
+            index_name='idx_beer_name',
+            fields=['name'],
+            collection_name='beers',
+            scope_name='brewing',
+        ),
+        AddField(
+            document_type='beer',
+            field_name='rating',
+            default=0,
+            collection_name='beers',
+            scope_name='brewing',
+        ),
+    ]
+```
+
+### Available operations
+
+| Operation | Reversible | Description |
+|-----------|:----------:|-------------|
+| `CreateScope` | Yes | Create a Couchbase scope |
+| `DropScope` | No | Drop a scope (data loss) |
+| `CreateCollection` | Yes | Create a collection in a scope |
+| `DropCollection` | No | Drop a collection (data loss) |
+| `CreateIndex` | Yes | Create a secondary N1QL index |
+| `DropIndex` | No | Drop an index |
+| `AddField` | Yes | Add a field with default to all documents of a type |
+| `RemoveField` | No | Remove a field from all documents of a type |
+| `RenameField` | Yes | Rename a field in all documents of a type |
+| `AlterField` | No | Transform field values using a N1QL expression |
+| `RunN1QL` | Optional | Execute arbitrary N1QL (reversible if `reverse_statement` provided) |
+| `RunPython` | Optional | Execute a Python callable (reversible if `reverse_func` provided) |
+
+### Auto-detection
+
+`cb_makemigrations` automatically detects:
+- New/removed Document classes (creates/drops collections)
+- Added/removed fields (N1QL UPDATE to backfill defaults or UNSET)
+- New/removed/changed indexes
+- Custom scope assignments
+
+### Dependency resolution
+
+Migrations can declare dependencies on other migrations, even across apps:
+
+```python
+class Migration(BaseMigration):
+    dependencies = [
+        ('auth', '0001_initial'),    # cross-app dependency
+        ('myapp', '0002_add_field'), # same-app dependency
+    ]
+```
+
+The executor resolves dependencies using topological sort and detects circular dependencies.
+
+### Fake migrations
+
+Mark migrations as applied without executing (useful for existing databases):
+
+```bash
+python manage.py cb_migrate --fake
+```
+
+### Migration state
+
+Applied migrations are tracked in a Couchbase document (`_cb_migrations`) in the default bucket. No relational database needed.
+
 ## Management Commands
 
 ```bash
+# Auto-detect changes and generate migration files
+python manage.py cb_makemigrations
+python manage.py cb_makemigrations --dry-run    # preview without writing
+python manage.py cb_makemigrations --empty      # create empty migration for manual editing
+python manage.py cb_makemigrations --initial    # ignore previous state
+
+# Apply or revert migrations
+python manage.py cb_migrate
+python manage.py cb_migrate --list              # show all migrations and status
+python manage.py cb_migrate --fake              # mark as applied without executing
+python manage.py cb_migrate myapp 0001_initial  # migrate to specific target
+
 # Create N1QL indexes declared in Document Meta.indexes
 python manage.py cb_ensure_indexes
 python manage.py cb_ensure_indexes --primary    # also create primary indexes
@@ -588,7 +705,7 @@ The library is designed with security as a priority:
 
 ## Test Coverage
 
-**557 tests** across 22 test modules, tested on Python 3.10, 3.11, 3.12, and 3.13.
+**784 tests** across 28 test modules, tested on Python 3.10, 3.11, 3.12, and 3.13.
 
 | Module | Coverage |
 |--------|----------|
@@ -606,7 +723,9 @@ The library is designed with security as a priority:
 | Session backend | 74% |
 | Management commands | 63-76% |
 
-**Overall: 91% unit test coverage, 557 tests, 0 known vulnerabilities (pip-audit clean).**
+| Migrations (state, operations, executor, autodetector, writer, commands) | 95%+ |
+
+**Overall: 91%+ unit test coverage, 784 tests, 0 known vulnerabilities (pip-audit clean).**
 
 ## Development
 

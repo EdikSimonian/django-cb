@@ -84,6 +84,7 @@
         <a href="{% url 'beers:home' %}" class="brand">Beer Sample</a>
         <a href="{% url 'beers:brewery_list' %}">Breweries</a>
         <a href="{% url 'beers:beer_list' %}">Beers</a>
+        <a href="{% url 'beers:migration_status' %}">Migrations</a>
         <span class="spacer"></span>
         {% if cb_user %}
             <span class="user-info">Logged in as <strong>{{ cb_user.username }}</strong></span>
