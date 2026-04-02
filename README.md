@@ -1,8 +1,8 @@
-# django-cb
+# django-couchbase-orm
 
 A Django-style ORM for Couchbase. Define models, run queries, and manage documents using familiar Django patterns with Couchbase Server as the backend.
 
-**Live Demo:** [django-cb-production.up.railway.app](https://django-cb-production.up.railway.app)
+**Live Demo:** [django-cb-production.up.railway.app](https://django-cb-production.up.railway.app) | **PyPI:** [django-couchbase-orm](https://pypi.org/project/django-couchbase-orm/)
 
 Works **alongside** Django's built-in ORM — use `django.db.models.Model` for relational data and `django_cb.Document` for Couchbase data in the same project. Or go fully Couchbase with the included session and auth backends.
 
@@ -18,6 +18,11 @@ Works **alongside** Django's built-in ORM — use `django.db.models.Model` for r
 - Couchbase auth backend (User model, authentication)
 - Embedded documents, references, compound fields
 - Auto-timestamps (`auto_now`, `auto_now_add`)
+- Aggregation: `Count`, `Sum`, `Avg`, `Min`, `Max`
+- `select_related()` for ReferenceField prefetching
+- `CouchbasePaginator` with Django-style Page objects
+- `bulk_create()` and `bulk_update()` for batch operations
+- Management commands: `cb_ensure_indexes`, `cb_create_collections`
 
 ## Requirements
 
@@ -344,11 +349,78 @@ AUTHENTICATION_BACKENDS = [
 # No DATABASES setting needed
 ```
 
+## Aggregation
+
+```python
+from django_cb import Avg, Count, Max, Min, Sum
+
+Beer.objects.filter(style="IPA").aggregate(
+    avg_abv=Avg("abv"),
+    max_abv=Max("abv"),
+    total=Count("*"),
+)
+# Returns: {"avg_abv": 6.5, "max_abv": 12.0, "total": 150}
+```
+
+## Pagination
+
+```python
+from django_cb import CouchbasePaginator
+
+paginator = CouchbasePaginator(Beer.objects.filter(abv__gte=5), per_page=20)
+page = paginator.page(1)
+
+for beer in page:
+    print(beer.name)
+
+page.has_next        # True
+page.has_previous    # False
+page.next_page_number  # 2
+paginator.num_pages  # 15
+paginator.count      # 300
+```
+
+## Bulk Operations
+
+```python
+# Create many documents at once
+beers = [Beer(name=f"Beer {i}", abv=5.0 + i * 0.1) for i in range(100)]
+Beer.objects.bulk_create(beers)
+
+# Update specific fields on many documents
+for beer in beers:
+    beer._data["abv"] = 7.0
+Beer.objects.bulk_update(beers, ["abv"])
+```
+
+## select_related (Prefetching)
+
+```python
+# Avoid N+1 queries when accessing ReferenceFields
+beers = Beer.objects.select_related("brewery").filter(abv__gte=7)
+for beer in beers:
+    # brewery is already prefetched — no extra query
+    print(beer._prefetched["brewery"].name)
+```
+
+## Management Commands
+
+```bash
+# Create N1QL indexes declared in Document Meta.indexes
+python manage.py cb_ensure_indexes
+python manage.py cb_ensure_indexes --primary    # also create primary indexes
+python manage.py cb_ensure_indexes --dry-run    # preview without executing
+
+# Create scopes and collections for all Document classes
+python manage.py cb_create_collections
+python manage.py cb_create_collections --dry-run
+```
+
 ## Development
 
 ```bash
 git clone https://github.com/EdikSimonian/django-couchbase-orm.git
-cd django-cb
+cd django-couchbase-orm
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
