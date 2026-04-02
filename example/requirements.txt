@@ -1,0 +1,4 @@
+django>=5.0
+couchbase>=4.1
+gunicorn>=21.0
+whitenoise>=6.0
