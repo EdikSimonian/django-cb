@@ -467,17 +467,13 @@ def beer_edit(request, beer_id):
         except Exception as e:
             messages.error(request, f"Failed to save: {e}")
 
-    try:
-        return render(request, "beers/beer_form.html", {
-            "action": "Edit",
-            "beer": beer,
-            "beer_id": beer_id,
-            "cb_user": request.cb_user,
-        })
-    except Exception as e:
-        from django.http import HttpResponse
-
-        return HttpResponse(f"Template render error: {type(e).__name__}: {e}", status=500)
+    return render(request, "beers/beer_form.html", {
+        "action": "Edit",
+        "beer": beer,
+        "beer_id": beer_id,
+        "brewery_id": beer.brewery_id or "",
+        "cb_user": request.cb_user,
+    })
 
 
 @_login_required
