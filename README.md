@@ -28,7 +28,7 @@ Works **alongside** Django's built-in ORM — use `django.db.models.Model` for r
 ## Installation
 
 ```bash
-pip install django-cb
+pip install django-couchbase-orm
 ```
 
 ## Quick Start
@@ -347,7 +347,7 @@ AUTHENTICATION_BACKENDS = [
 ## Development
 
 ```bash
-git clone https://github.com/EdikSimonian/django-cb.git
+git clone https://github.com/EdikSimonian/django-couchbase-orm.git
 cd django-cb
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"

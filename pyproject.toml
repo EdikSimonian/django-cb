@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "django-cb"
+name = "django-couchbase-orm"
 version = "0.1.0"
 description = "Django-style ORM for Couchbase — define models, run queries, and manage documents using familiar Django patterns."
 readme = "README.md"
@@ -43,9 +43,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/EdikSimonian/django-cb"
-Repository = "https://github.com/EdikSimonian/django-cb"
-Issues = "https://github.com/EdikSimonian/django-cb/issues"
+Homepage = "https://github.com/EdikSimonian/django-couchbase-orm"
+Repository = "https://github.com/EdikSimonian/django-couchbase-orm"
+Issues = "https://github.com/EdikSimonian/django-couchbase-orm/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/django_cb"]
