@@ -361,17 +361,20 @@ def brewery_edit(request, brewery_id):
         raise Http404("Brewery not found")
 
     if request.method == "POST":
-        brewery._data["name"] = request.POST.get("name", "").strip()
-        brewery._data["description"] = request.POST.get("description", "").strip() or None
-        brewery._data["city"] = request.POST.get("city", "").strip() or None
-        brewery._data["state"] = request.POST.get("state", "").strip() or None
-        brewery._data["country"] = request.POST.get("country", "").strip() or None
-        brewery._data["phone"] = request.POST.get("phone", "").strip() or None
-        brewery._data["website"] = _validate_url(request.POST.get("website", "").strip())
-        brewery._data["code"] = request.POST.get("code", "").strip() or None
-        brewery.save()
-        messages.success(request, f"Brewery '{brewery.name}' updated.")
-        return redirect("beers:brewery_detail", brewery_id=brewery.pk)
+        try:
+            brewery._data["name"] = request.POST.get("name", "").strip()
+            brewery._data["description"] = request.POST.get("description", "").strip() or None
+            brewery._data["city"] = request.POST.get("city", "").strip() or None
+            brewery._data["state"] = request.POST.get("state", "").strip() or None
+            brewery._data["country"] = request.POST.get("country", "").strip() or None
+            brewery._data["phone"] = request.POST.get("phone", "").strip() or None
+            brewery._data["website"] = _validate_url(request.POST.get("website", "").strip())
+            brewery._data["code"] = request.POST.get("code", "").strip() or None
+            brewery.save()
+            messages.success(request, f"Brewery '{brewery.name}' updated.")
+            return redirect("beers:brewery_detail", brewery_id=brewery.pk)
+        except Exception as e:
+            messages.error(request, f"Failed to save: {e}")
 
     return render(request, "beers/brewery_form.html", {
         "action": "Edit",
@@ -446,17 +449,20 @@ def beer_edit(request, beer_id):
         raise Http404("Beer not found")
 
     if request.method == "POST":
-        beer._data["name"] = request.POST.get("name", "").strip()
-        beer._data["description"] = request.POST.get("description", "").strip() or None
-        beer._data["abv"] = _safe_float(request.POST.get("abv", ""))
-        beer._data["ibu"] = _safe_float(request.POST.get("ibu", ""))
-        beer._data["srm"] = _safe_float(request.POST.get("srm", ""))
-        beer._data["style"] = request.POST.get("style", "").strip() or None
-        beer._data["category"] = request.POST.get("category", "").strip() or None
-        beer._data["brewery_id"] = request.POST.get("brewery_id", "").strip() or None
-        beer.save()
-        messages.success(request, f"Beer '{beer.name}' updated.")
-        return redirect("beers:beer_detail", beer_id=beer.pk)
+        try:
+            beer._data["name"] = request.POST.get("name", "").strip()
+            beer._data["description"] = request.POST.get("description", "").strip() or None
+            beer._data["abv"] = _safe_float(request.POST.get("abv", ""))
+            beer._data["ibu"] = _safe_float(request.POST.get("ibu", ""))
+            beer._data["srm"] = _safe_float(request.POST.get("srm", ""))
+            beer._data["style"] = request.POST.get("style", "").strip() or None
+            beer._data["category"] = request.POST.get("category", "").strip() or None
+            beer._data["brewery_id"] = request.POST.get("brewery_id", "").strip() or None
+            beer.save()
+            messages.success(request, f"Beer '{beer.name}' updated.")
+            return redirect("beers:beer_detail", beer_id=beer.pk)
+        except Exception as e:
+            messages.error(request, f"Failed to save: {e}")
 
     return render(request, "beers/beer_form.html", {
         "action": "Edit",
