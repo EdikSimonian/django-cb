@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Install the django-cb package from the repo root
+# Install the django-couchbase-orm package from the repo root
 pip install -e /app/
 
 # Install example app dependencies

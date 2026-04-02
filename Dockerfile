@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy everything
 COPY . .
 
-# Install django-cb package + example dependencies
+# Install django-couchbase-orm package + example dependencies
 RUN pip install --no-cache-dir -e . && \
     pip install --no-cache-dir -r example/requirements.txt
 

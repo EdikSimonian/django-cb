@@ -1,5 +1,5 @@
 class DjangoCbError(Exception):
-    """Base exception for all django-cb errors."""
+    """Base exception for all django-couchbase-orm errors."""
 
 
 class ValidationError(DjangoCbError):
