@@ -191,6 +191,93 @@ for beer in Beer.objects.filter(abv__gte=10).iterator():
 | `regex` / `iregex` | `REGEXP_CONTAINS()` | `name__regex="^[A-Z]"` |
 | `between` | `BETWEEN $1 AND $2` | `abv__between=[5, 8]` |
 
+## Relations (ReferenceField)
+
+Use `ReferenceField` to create cross-document references — similar to a ForeignKey in Django's ORM.
+
+```python
+from django_couchbase_orm import Document, StringField, ReferenceField
+
+class Brewery(Document):
+    name = StringField(required=True)
+
+class Beer(Document):
+    name = StringField(required=True)
+    brewery = ReferenceField(Brewery)      # by class
+    # or: brewery = ReferenceField("Brewery")  # by string name (for circular refs)
+```
+
+### Saving references
+
+```python
+# Save by key string
+beer = Beer(name="IPA", brewery="brewery::my_brewery")
+beer.save()
+
+# Or save by document instance
+brewery = Brewery.objects.get(pk="brewery::my_brewery")
+beer = Beer(name="IPA", brewery=brewery)  # stores brewery.pk automatically
+beer.save()
+```
+
+### Loading referenced documents
+
+```python
+beer = Beer.objects.get(pk="beer::my_ipa")
+
+# The field stores the key string
+print(beer.brewery)  # "brewery::my_brewery"
+
+# Load the referenced document manually
+brewery = Brewery.objects.get(pk=beer.brewery)
+
+# Or use dereference()
+field = Beer._meta.fields["brewery"]
+brewery = field.dereference(beer.brewery)
+```
+
+### Prefetching with select_related (avoids N+1 queries)
+
+```python
+# Without select_related: 1 query + N queries for each brewery
+beers = Beer.objects.filter(abv__gte=7)
+for beer in beers:
+    brewery = Brewery.objects.get(pk=beer.brewery)  # extra query each time!
+
+# With select_related: 1 query + 1 batch fetch for all breweries
+beers = Beer.objects.select_related("brewery").filter(abv__gte=7)
+for beer in beers:
+    brewery = beer._prefetched["brewery"]  # already loaded, no extra query
+```
+
+### Many-to-many (list of references)
+
+Couchbase has no join tables. Use a list of keys instead:
+
+```python
+class Playlist(Document):
+    name = StringField(required=True)
+    song_ids = ListField(field=StringField())  # ["song::1", "song::2", ...]
+
+# Add a song
+playlist.song_ids.append("song::new")
+playlist.save()
+```
+
+### Cascade delete
+
+Not automatic — handle it in signals:
+
+```python
+from django_couchbase_orm.signals import pre_delete
+
+def delete_brewery_beers(sender, instance, **kwargs):
+    """Delete all beers when a brewery is deleted."""
+    Beer.objects.filter(brewery=instance.pk).delete()
+
+pre_delete.connect(delete_brewery_beers, sender=Brewery)
+```
+
 ## Embedded Documents
 
 ```python
