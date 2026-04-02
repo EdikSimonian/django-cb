@@ -1,5 +1,11 @@
 # django-couchbase-orm
 
+[![CI](https://github.com/EdikSimonian/django-couchbase-orm/actions/workflows/ci.yml/badge.svg)](https://github.com/EdikSimonian/django-couchbase-orm/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/django-couchbase-orm)](https://pypi.org/project/django-couchbase-orm/)
+[![Python](https://img.shields.io/pypi/pyversions/django-couchbase-orm)](https://pypi.org/project/django-couchbase-orm/)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/EdikSimonian/6884e1697683011bad48839474691987/raw/coverage.json)](https://github.com/EdikSimonian/django-couchbase-orm/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/EdikSimonian/django-couchbase-orm)](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/LICENSE)
+
 A Django-style ORM for Couchbase. Define models, run queries, and manage documents using familiar Django patterns with Couchbase Server as the backend.
 
 **Live Demo:** [django-couchbase-orm-production.up.railway.app](https://django-couchbase-orm-production.up.railway.app) | **PyPI:** [django-couchbase-orm](https://pypi.org/project/django-couchbase-orm/)

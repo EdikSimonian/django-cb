@@ -40,6 +40,20 @@ jobs:
         run: |
           coverage run -m pytest tests/ -q -m "not integration"
           coverage report --show-missing --include="src/*"
+          COVERAGE=$(coverage report --include="src/*" | grep TOTAL | awk '{print $NF}' | tr -d '%')
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+      - name: Create coverage badge
+        if: matrix.python-version == '3.12' && github.ref == 'refs/heads/main'
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: 6884e1697683011bad48839474691987
+          filename: coverage.json
+          label: coverage
+          message: ${{ env.COVERAGE }}%
+          valColorRange: ${{ env.COVERAGE }}
+          minColorRange: 50
+          maxColorRange: 100
 
   integration:
     runs-on: ubuntu-latest
