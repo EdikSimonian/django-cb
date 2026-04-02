@@ -68,6 +68,9 @@ class DocumentManager:
     def values(self, *fields) -> QuerySet:
         return self._get_queryset().values(*fields)
 
+    def select_related(self, *fields) -> QuerySet:
+        return self._get_queryset().select_related(*fields)
+
     def none(self) -> QuerySet:
         return self._get_queryset().none()
 
@@ -173,3 +176,65 @@ class DocumentManager:
             return result.exists
         except Exception:
             return False
+
+    def bulk_create(self, documents: list[Document]) -> list[Document]:
+        """Create multiple documents in batch.
+
+        Validates all documents first, then upserts them.
+        Returns the list of saved documents.
+        """
+        for doc in documents:
+            doc.full_clean()
+
+        collection = self._collection
+        try:
+            from couchbase.options import UpsertOptions
+
+            for doc in documents:
+                data = doc.to_dict()
+                result = collection.upsert(doc.pk, data, UpsertOptions())
+                doc._cas = result.cas
+                doc._is_new = False
+        except Exception as e:
+            raise OperationError(f"Failed during bulk_create: {e}") from e
+
+        return documents
+
+    def bulk_update(self, documents: list[Document], fields: list[str]) -> int:
+        """Update specific fields on multiple documents in batch.
+
+        Args:
+            documents: List of Document instances to update.
+            fields: List of field names to update.
+
+        Returns:
+            The number of documents updated.
+        """
+        if not documents or not fields:
+            return 0
+
+        collection = self._collection
+        updated = 0
+        try:
+            import couchbase.subdocument as SD
+
+            field_map = {name: field.get_db_field() for name, field in self._document_class._meta.fields.items()}
+
+            for doc in documents:
+                specs = []
+                for field_name in fields:
+                    if field_name not in self._document_class._meta.fields:
+                        raise ValueError(f"Unknown field: {field_name}")
+                    field_obj = self._document_class._meta.fields[field_name]
+                    db_field = field_map.get(field_name, field_name)
+                    value = doc._data.get(field_name)
+                    json_value = field_obj.to_json(value) if value is not None else None
+                    specs.append(SD.upsert(db_field, json_value))
+
+                if specs:
+                    collection.mutate_in(doc.pk, specs)
+                    updated += 1
+        except Exception as e:
+            raise OperationError(f"Failed during bulk_update: {e}") from e
+
+        return updated

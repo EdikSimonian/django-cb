@@ -2,6 +2,7 @@
 
 __version__ = "0.1.0"
 
+from django_cb.aggregates import Avg, Count, Max, Min, Sum
 from django_cb.document import Document
 from django_cb.exceptions import (
     DocumentDoesNotExist,
@@ -24,6 +25,7 @@ from django_cb.fields.simple import (
     StringField,
     UUIDField,
 )
+from django_cb.paginator import CouchbasePaginator
 from django_cb.queryset.q import Q
 
 __all__ = [
@@ -41,8 +43,14 @@ __all__ = [
     "FloatField",
     "IntegerField",
     "ListField",
+    "Avg",
+    "Count",
+    "CouchbasePaginator",
+    "Max",
+    "Min",
     "Q",
     "ReferenceField",
+    "Sum",
     "StringField",
     "UUIDField",
 ]

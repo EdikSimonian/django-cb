@@ -28,6 +28,7 @@ class QuerySet:
         self._limit_val: int | None = None
         self._offset_val: int | None = None
         self._values_fields: list[str] | None = None  # None = return Documents
+        self._select_related_fields: list[str] = []
         self._result_cache: list | None = None
 
     def _clone(self) -> QuerySet:
@@ -39,6 +40,7 @@ class QuerySet:
         qs._limit_val = self._limit_val
         qs._offset_val = self._offset_val
         qs._values_fields = self._values_fields[:] if self._values_fields is not None else None
+        qs._select_related_fields = self._select_related_fields[:]
         return qs
 
     @property
@@ -149,9 +151,56 @@ class QuerySet:
                     documents.append(self._document_class.from_dict(doc_id, row))
                 else:
                     documents.append(row)
+            # Prefetch referenced documents for select_related
+            if self._select_related_fields and documents:
+                self._prefetch_related(documents)
             self._result_cache = documents
 
         return self._result_cache
+
+    def _prefetch_related(self, documents: list) -> None:
+        """Prefetch referenced documents to avoid N+1 queries."""
+        from django_cb.fields.reference import ReferenceField
+
+        for field_name in self._select_related_fields:
+            field = self._meta.fields.get(field_name)
+            if not field or not isinstance(field, ReferenceField):
+                continue
+
+            # Collect all unique keys
+            keys = set()
+            for doc in documents:
+                key = doc._data.get(field_name)
+                if key:
+                    keys.add(key)
+
+            if not keys:
+                continue
+
+            # Batch-fetch all referenced documents via KV multi-get
+            ref_class = field._resolve_type()
+            ref_cache = {}
+            from django_cb.connection import get_collection
+
+            collection = get_collection(
+                alias=ref_class._meta.bucket_alias,
+                scope=ref_class._meta.scope_name,
+                collection=ref_class._meta.collection_name,
+            )
+            for key in keys:
+                try:
+                    result = collection.get(key)
+                    data = result.content_as[dict]
+                    ref_cache[key] = ref_class.from_dict(key, data)
+                except Exception:
+                    pass
+
+            # Attach prefetched docs as _prefetched_{field_name}
+            for doc in documents:
+                key = doc._data.get(field_name)
+                if key and key in ref_cache:
+                    doc._prefetched = getattr(doc, "_prefetched", {})
+                    doc._prefetched[field_name] = ref_cache[key]
 
     # ============================================================
     # Chainable methods (return new QuerySet)
@@ -179,6 +228,16 @@ class QuerySet:
         """Set ordering. Prefix with '-' for descending."""
         qs = self._clone()
         qs._order_by_fields = list(fields)
+        return qs
+
+    def select_related(self, *fields: str) -> QuerySet:
+        """Prefetch referenced documents to avoid N+1 queries.
+
+        Args:
+            fields: ReferenceField names to prefetch.
+        """
+        qs = self._clone()
+        qs._select_related_fields = list(fields)
         return qs
 
     def values(self, *fields: str) -> QuerySet:
@@ -263,6 +322,46 @@ class QuerySet:
         for row in result:
             return row.get("__count", 0)
         return 0
+
+    def aggregate(self, **kwargs) -> dict:
+        """Run aggregation functions on the QuerySet.
+
+        Supported functions: Count, Sum, Avg, Min, Max.
+
+        Usage:
+            Beer.objects.filter(style="IPA").aggregate(
+                avg_abv=Avg("abv"),
+                max_abv=Max("abv"),
+                total=Count("name"),
+            )
+            # Returns: {"avg_abv": 6.5, "max_abv": 12.0, "total": 150}
+        """
+        from django_cb.aggregates import _build_agg_expression
+
+        query = self._build_query()
+        query._order_by = []
+        query._limit = None
+        query._offset = None
+
+        # Build SELECT clause with aggregate expressions
+        field_map = self._get_field_map()
+        select_parts = []
+        for alias, agg in kwargs.items():
+            expr = _build_agg_expression(agg, field_map)
+            select_parts.append(f"{expr} AS `{alias}`")
+
+        query._select_raw = ", ".join(select_parts)
+        statement, params = query.build()
+
+        from couchbase.options import QueryOptions
+
+        from django_cb.connection import get_cluster
+
+        cluster = get_cluster(self._meta.bucket_alias)
+        result = cluster.query(statement, QueryOptions(positional_parameters=params))
+        for row in result:
+            return dict(row)
+        return {alias: None for alias in kwargs}
 
     def exists(self) -> bool:
         """Return True if the QuerySet contains any results."""
