@@ -154,3 +154,5 @@ STORAGES = {
 
 USE_TZ = False
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"

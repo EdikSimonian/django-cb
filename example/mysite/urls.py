@@ -10,6 +10,8 @@ urlpatterns = [
     path("django-admin/", admin.site.urls),
     path("admin/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
+    # Auth (login/logout for OIDC flow)
+    path("accounts/", include("django.contrib.auth.urls")),
     # OIDC provider
     path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
     # Beer app (API + web UI)
