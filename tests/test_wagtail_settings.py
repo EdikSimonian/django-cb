@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "wagtail.search",
     "wagtail.admin",
     "wagtail",
+    "tests.wagtailapp",
 ]
 
 MIDDLEWARE = [

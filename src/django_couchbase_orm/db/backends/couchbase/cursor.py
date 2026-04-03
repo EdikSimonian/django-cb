@@ -706,8 +706,12 @@ class CouchbaseCursor:
 
         N1QL's IN operator expects a single array value, not a comma-separated list.
         """
-        # Find all IN (%s, %s, ...) patterns.
-        in_pattern = re.compile(r'\bIN\s*\((%s(?:\s*,\s*%s)*)\)', re.IGNORECASE)
+        # Find all IN (%s, %s, ...) and IN ((%s), (%s), ...) patterns.
+        # The second form appears when Django wraps each value in parens.
+        in_pattern = re.compile(
+            r'\bIN\s*\((\(?%s\)?(?:\s*,\s*\(?%s\)?)*)\)',
+            re.IGNORECASE,
+        )
 
         new_params = []
         param_index = 0
