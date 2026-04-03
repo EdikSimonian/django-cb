@@ -83,9 +83,15 @@ def _patch_sql_functions():
     _sql_functions_patched = True
 
     from django.db.models.functions import Substr
+    from django.db.models import Value
 
     def substr_as_couchbase(self, compiler, connection, **extra_context):
-        return self.as_sql(compiler, connection, function="SUBSTR", **extra_context)
+        # N1QL SUBSTR is 0-indexed, SQL SUBSTRING is 1-indexed.
+        # Subtract 1 from the position argument to convert.
+        clone = self.copy()
+        pos_expr = clone.source_expressions[1]
+        clone.source_expressions[1] = pos_expr - Value(1)
+        return clone.as_sql(compiler, connection, function="SUBSTR", **extra_context)
 
     Substr.as_couchbase = substr_as_couchbase
 
