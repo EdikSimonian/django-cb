@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+# Run migrations
+python manage.py migrate --noinput 2>&1 || true
+
+# Create superuser if env vars are set
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
+    python manage.py createsuperuser --noinput 2>/dev/null || true
+fi
+
+# Start gunicorn
+exec gunicorn mysite.wsgi --bind 0.0.0.0:${PORT:-8000} --workers 2
