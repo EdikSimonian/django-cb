@@ -11,3 +11,8 @@ htmlcov/
 *.sqlite3
 .env
 .env.local
+tests/
+docs/
+ios/
+*.md
+.github/

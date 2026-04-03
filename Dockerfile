@@ -8,12 +8,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the ORM package
+# Install dependencies first (cached unless requirements change)
+COPY pyproject.toml ./
+COPY src/django_couchbase_orm/__init__.py src/django_couchbase_orm/__init__.py
+RUN pip install --no-cache-dir -e . 2>/dev/null || true
+
+COPY example/requirements.txt example/requirements.txt
+RUN pip install --no-cache-dir -r example/requirements.txt
+
+# Now copy the rest (only this layer rebuilds on code changes)
 COPY . .
 RUN pip install --no-cache-dir -e .
-
-# Install example app dependencies
-RUN pip install --no-cache-dir -r example/requirements.txt
 
 # Collect static files
 RUN cd example && python manage.py collectstatic --noinput 2>/dev/null || true
