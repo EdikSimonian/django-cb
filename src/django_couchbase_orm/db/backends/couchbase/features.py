@@ -107,7 +107,8 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_sequence_reset = False
 
     # N1QL doesn't support ignore/update on conflicts natively.
-    supports_ignore_conflicts = False
+    # UPSERT inherently handles conflicts by overwriting.
+    supports_ignore_conflicts = True
     supports_update_conflicts = False
 
     # Collation is not supported at field level in Couchbase.

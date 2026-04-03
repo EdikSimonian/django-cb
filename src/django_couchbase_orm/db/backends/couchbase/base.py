@@ -66,6 +66,30 @@ def _patch_autofields():
         _make_patched(field_cls)
 
 
+_sql_functions_patched = False
+
+
+def _patch_sql_functions():
+    """Register as_couchbase methods on Django SQL functions.
+
+    N1QL uses different function names than SQL:
+    - SUBSTRING → SUBSTR
+    - LENGTH stays LENGTH (same)
+    - CONCAT stays CONCAT (same)
+    """
+    global _sql_functions_patched
+    if _sql_functions_patched:
+        return
+    _sql_functions_patched = True
+
+    from django.db.models.functions import Substr
+
+    def substr_as_couchbase(self, compiler, connection, **extra_context):
+        return self.as_sql(compiler, connection, function="SUBSTR", **extra_context)
+
+    Substr.as_couchbase = substr_as_couchbase
+
+
 class _CouchbaseDatabase:
     """Minimal DB-API 2.0 module stand-in for Django's error wrapping."""
 
@@ -244,8 +268,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         )
 
     def init_connection_state(self):
-        """Patch AutoField and bridge connection pools."""
+        """Patch AutoField, SQL functions, and bridge connection pools."""
         _patch_autofields()
+        _patch_sql_functions()
 
         # Auto-generate settings.COUCHBASE from DATABASES if not configured,
         # and share this connection with the Document API.
