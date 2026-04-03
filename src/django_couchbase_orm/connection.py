@@ -14,6 +14,10 @@ def _get_config(alias: str = "default") -> dict:
     """Retrieve Couchbase configuration for the given alias from Django settings."""
     couchbase_settings = getattr(settings, "COUCHBASE", None)
     if couchbase_settings is None:
+        # Try to auto-derive from DATABASES if a Couchbase backend is configured.
+        get_or_create_couchbase_settings()
+        couchbase_settings = getattr(settings, "COUCHBASE", None)
+    if couchbase_settings is None:
         raise ConnectionError("COUCHBASE setting is not defined in Django settings.")
     if alias not in couchbase_settings:
         raise ConnectionError(f"Couchbase alias '{alias}' is not defined in COUCHBASE settings.")
@@ -25,14 +29,32 @@ def _get_config(alias: str = "default") -> dict:
     return config
 
 
+def _is_cluster_alive(cluster) -> bool:
+    """Check if a cached cluster connection is still usable."""
+    try:
+        # The Couchbase SDK raises RuntimeError if the cluster is closed.
+        cluster.ping()
+        return True
+    except (RuntimeError, Exception):
+        return False
+
+
 def get_cluster(alias: str = "default"):
     """Get or create a cached Cluster instance for the given alias.
 
-    Thread-safe with lazy initialization.
+    Thread-safe with lazy initialization. Handles closed clusters by
+    removing them from cache and creating a fresh connection.
     """
     cache_key = f"cluster:{alias}"
     if cache_key in _connections:
-        return _connections[cache_key]
+        cluster = _connections[cache_key]
+        if _is_cluster_alive(cluster):
+            return cluster
+        # Cluster was closed (e.g., by Django test teardown). Remove stale entries.
+        with _lock:
+            for key in list(_connections.keys()):
+                if key.split(":")[1] == alias if ":" in key else False:
+                    _connections.pop(key, None)
 
     with _lock:
         # Double-check after acquiring lock
@@ -132,3 +154,70 @@ def reset_connections():
     """Reset the connection cache. Useful for testing."""
     with _lock:
         _connections.clear()
+
+
+def share_backend_connection(db_alias="default"):
+    """Share the DB backend's Couchbase cluster with the Document API.
+
+    Call this to avoid creating two separate cluster connections when both
+    the Document API (settings.COUCHBASE) and the Django DB backend
+    (settings.DATABASES) are configured for the same Couchbase cluster.
+
+    This reads the DATABASES config and populates the Document API's
+    connection cache so both systems use the same cluster object.
+    """
+    from django.db import connections
+
+    try:
+        conn = connections[db_alias]
+        if conn.vendor != "couchbase":
+            return
+
+        conn.ensure_connection()
+        cluster = conn.connection
+        if cluster is None:
+            return
+
+        # Derive the COUCHBASE alias from DATABASES config.
+        db_settings = conn.settings_dict
+        cb_alias = db_settings.get("OPTIONS", {}).get("COUCHBASE_ALIAS", "default")
+
+        cache_key = f"cluster:{cb_alias}"
+        with _lock:
+            if cache_key not in _connections:
+                _connections[cache_key] = cluster
+
+        bucket_name = db_settings.get("NAME", "default")
+        bucket_cache_key = f"bucket:{cb_alias}"
+        with _lock:
+            if bucket_cache_key not in _connections:
+                _connections[bucket_cache_key] = cluster.bucket(bucket_name)
+
+    except Exception:
+        pass  # Non-critical — both systems work independently.
+
+
+def get_or_create_couchbase_settings():
+    """Auto-generate settings.COUCHBASE from settings.DATABASES if not set.
+
+    Allows projects using only the DB backend (settings.DATABASES) to also
+    use the Document API without manually duplicating connection config.
+    """
+    from django.conf import settings
+
+    if getattr(settings, "COUCHBASE", None) is not None:
+        return
+
+    # Look for a Couchbase DB backend in DATABASES.
+    for alias, db_config in getattr(settings, "DATABASES", {}).items():
+        engine = db_config.get("ENGINE", "")
+        if "couchbase" in engine:
+            cb_config = {
+                "CONNECTION_STRING": db_config.get("HOST", "couchbase://localhost"),
+                "USERNAME": db_config.get("USER", "Administrator"),
+                "PASSWORD": db_config.get("PASSWORD", "password"),
+                "BUCKET": db_config.get("NAME", "default"),
+                "SCOPE": db_config.get("OPTIONS", {}).get("SCOPE", "_default"),
+            }
+            settings.COUCHBASE = {"default": cb_config}
+            return

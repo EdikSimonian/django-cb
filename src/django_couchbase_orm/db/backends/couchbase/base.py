@@ -252,8 +252,18 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         )
 
     def init_connection_state(self):
-        """Patch AutoField to work with string UUIDs instead of integers."""
+        """Patch AutoField and bridge connection pools."""
         _patch_autofields()
+
+        # Auto-generate settings.COUCHBASE from DATABASES if not configured,
+        # and share this connection with the Document API.
+        from django_couchbase_orm.connection import (
+            get_or_create_couchbase_settings,
+            share_backend_connection,
+        )
+
+        get_or_create_couchbase_settings()
+        share_backend_connection(self.alias)
 
     def _set_autocommit(self, autocommit):
         # Couchbase doesn't have traditional autocommit mode.
