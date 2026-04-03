@@ -14,6 +14,25 @@ class HomePage(Page):
     ]
 
 
+class BlogIndexPage(Page):
+    """Blog index page that lists child BlogPages."""
+
+    intro = RichTextField(blank=True)
+
+    content_panels = Page.content_panels + [
+        FieldPanel("intro"),
+    ]
+
+    subpage_types = ["home.BlogPage"]
+
+    def get_context(self, request):
+        context = super().get_context(request)
+        context["posts"] = (
+            self.get_children().live().specific().order_by("-blogpage__date")
+        )
+        return context
+
+
 class BlogPage(Page):
     """A blog post page."""
 
@@ -26,3 +45,5 @@ class BlogPage(Page):
         FieldPanel("intro"),
         FieldPanel("body"),
     ]
+
+    parent_page_types = ["home.BlogIndexPage"]

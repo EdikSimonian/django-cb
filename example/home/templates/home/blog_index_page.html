@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} — BrewSync{% endblock %}
+
+{% block content %}
+<h1 style="font-size:28px; margin-bottom:8px; color:#fff;">{{ page.title }}</h1>
+{% if page.intro %}<div class="cms-content" style="margin-bottom:24px;">{{ page.intro|safe }}</div>{% endif %}
+
+{% if posts %}
+<div class="grid">
+    {% for post in posts %}
+    <a href="{{ post.url }}" class="card">
+        <h3>{{ post.title }}</h3>
+        {% if post.specific.date %}
+        <div class="blog-meta">{{ post.specific.date|date:"F j, Y" }}</div>
+        {% endif %}
+        {% if post.specific.intro %}
+        <div class="blog-intro">{{ post.specific.intro }}</div>
+        {% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<p style="color:var(--text-muted);">No blog posts yet.</p>
+{% endif %}
+{% endblock %}
