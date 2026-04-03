@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from collections import namedtuple
-
-from django.db.backends.base.introspection import BaseDatabaseIntrospection
-from django.db.backends.base.introspection import FieldInfo, TableInfo
+from django.db.backends.base.introspection import BaseDatabaseIntrospection, FieldInfo, TableInfo
 
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):
@@ -24,9 +21,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         """Return a list of table (collection) names in the current scope."""
         self.connection.ensure_connection()
         bucket = self.connection.couchbase_bucket
-        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get(
-            "SCOPE", "_default"
-        )
+        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get("SCOPE", "_default")
 
         tables = []
         try:
@@ -34,9 +29,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
             for scope in cm.get_all_scopes():
                 if scope.name == scope_name:
                     for col in scope.collections:
-                        tables.append(
-                            TableInfo(col.name, "t")
-                        )
+                        tables.append(TableInfo(col.name, "t"))
         except Exception:
             pass
         return tables
@@ -71,16 +64,12 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
 
         # Fallback: sample a document from the collection.
         bucket_name = self.connection.settings_dict["NAME"]
-        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get(
-            "SCOPE", "_default"
-        )
+        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get("SCOPE", "_default")
         qn = self.connection.ops.quote_name
         keyspace = f"{qn(bucket_name)}.{qn(scope_name)}.{qn(table_name)}"
 
         try:
-            result = self.connection.couchbase_cluster.query(
-                f"SELECT * FROM {keyspace} LIMIT 1"
-            )
+            result = self.connection.couchbase_cluster.query(f"SELECT * FROM {keyspace} LIMIT 1")
             rows = list(result.rows())
             if rows:
                 doc = rows[0].get(table_name, rows[0])
@@ -110,16 +99,13 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
     def get_constraints(self, cursor, table_name):
         """Return indexes and constraints for the given collection."""
         bucket_name = self.connection.settings_dict["NAME"]
-        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get(
-            "SCOPE", "_default"
-        )
+        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get("SCOPE", "_default")
         constraints = {}
 
         try:
             self.connection.ensure_connection()
             result = self.connection.couchbase_cluster.query(
-                "SELECT * FROM system:indexes "
-                "WHERE bucket_id = $1 AND scope_id = $2 AND keyspace_id = $3",
+                "SELECT * FROM system:indexes WHERE bucket_id = $1 AND scope_id = $2 AND keyspace_id = $3",
                 bucket_name,
                 scope_name,
                 table_name,
@@ -130,9 +116,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 is_primary = idx.get("is_primary", False)
                 index_keys = idx.get("index_key", [])
                 # Strip backticks from index key expressions.
-                columns = [
-                    k.strip("`").strip("(").strip(")") for k in index_keys
-                ]
+                columns = [k.strip("`").strip("(").strip(")") for k in index_keys]
                 constraints[name] = {
                     "columns": columns,
                     "primary_key": is_primary,

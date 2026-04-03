@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from couchbase.options import QueryOptions
 
@@ -36,9 +35,7 @@ def _parse_select_columns(sql: str) -> list[str] | None:
     Uses paren-aware parsing to skip over subqueries like EXISTS(SELECT ... FROM ...).
     """
     sql_stripped = sql.strip()
-    prefix_match = re.match(
-        r"SELECT\s+(?:DISTINCT\s+)?", sql_stripped, re.IGNORECASE
-    )
+    prefix_match = re.match(r"SELECT\s+(?:DISTINCT\s+)?", sql_stripped, re.IGNORECASE)
     if not prefix_match:
         return None
 
@@ -79,13 +76,13 @@ def _parse_select_columns(sql: str) -> list[str] | None:
             continue
 
         # Handle backtick-quoted: `table`.`col` -> col
-        backtick_match = re.search(r'`(\w+)`\s*$', col_expr)
+        backtick_match = re.search(r"`(\w+)`\s*$", col_expr)
         if backtick_match:
             result.append(backtick_match.group(1))
             continue
 
         # Handle dotted: d.col_name -> col_name
-        dot_match = re.search(r'\.(\w+)\s*$', col_expr)
+        dot_match = re.search(r"\.(\w+)\s*$", col_expr)
         if dot_match:
             result.append(dot_match.group(1))
             continue
@@ -321,7 +318,7 @@ def _deduplicate_select_columns(sql: str) -> str:
     if not prefix_match:
         return sql
     prefix = prefix_match.group(1)
-    after_select = sql_stripped[prefix_match.end():]
+    after_select = sql_stripped[prefix_match.end() :]
 
     # Find the top-level FROM by tracking paren depth.
     depth = 0
@@ -333,7 +330,7 @@ def _deduplicate_select_columns(sql: str) -> str:
             depth += 1
         elif ch == ")":
             depth -= 1
-        elif depth == 0 and after_select[i:i+5].upper() == "FROM " :
+        elif depth == 0 and after_select[i : i + 5].upper() == "FROM ":
             from_pos = i
             break
         i += 1
@@ -434,7 +431,7 @@ def _deduplicate_select_columns(sql: str) -> str:
         return sql
 
     prefix = prefix_match.group(1)
-    after_select = sql_stripped[prefix_match.end():]
+    after_select = sql_stripped[prefix_match.end() :]
     from_pos = _find_top_level_from(after_select)
     if from_pos == -1:
         return sql
@@ -709,7 +706,7 @@ class CouchbaseCursor:
         # Find all IN (%s, %s, ...) and IN ((%s), (%s), ...) patterns.
         # The second form appears when Django wraps each value in parens.
         in_pattern = re.compile(
-            r'\bIN\s*\((\(?%s\)?(?:\s*,\s*\(?%s\)?)*)\)',
+            r"\bIN\s*\((\(?%s\)?(?:\s*,\s*\(?%s\)?)*)\)",
             re.IGNORECASE,
         )
 
@@ -724,7 +721,7 @@ class CouchbaseCursor:
             placeholder_count = in_content.count("%s")
 
             # Add everything before this match, consuming params along the way.
-            before = sql[last_end:match.start()]
+            before = sql[last_end : match.start()]
             before_count = before.count("%s")
             for i in range(before_count):
                 new_params.append(params[param_index])
@@ -732,7 +729,7 @@ class CouchbaseCursor:
             result_parts.append(before)
 
             # Collect the IN values into an array.
-            array_values = params[param_index:param_index + placeholder_count]
+            array_values = params[param_index : param_index + placeholder_count]
             param_index += placeholder_count
             new_params.append(list(array_values))
             result_parts.append("IN %s")
@@ -850,6 +847,7 @@ class CouchbaseCursor:
             err_str = str(e)
             err_code = ""
             import re as _re
+
             _m = _re.search(r"first_error_code': (\d+)", err_str)
             if _m:
                 err_code = _m.group(1)
@@ -867,9 +865,9 @@ class CouchbaseCursor:
             # Return empty result instead of crashing.
             if err_code in ("3000", "4210") and n1ql.strip().upper().startswith(("SELECT", "DELETE", "UPDATE")):
                 import logging
+
                 logging.getLogger("django.db.backends.couchbase").warning(
-                    "N1QL limitation (error %s): unsupported query pattern. "
-                    "Returning empty result. Query: %s",
+                    "N1QL limitation (error %s): unsupported query pattern. Returning empty result. Query: %s",
                     err_code,
                     n1ql[:200],
                 )
@@ -889,20 +887,10 @@ class CouchbaseCursor:
                     # Fallback to dict key order (for SELECT * etc.).
                     columns = list(rows_raw[0].keys())
 
-                self._description = [
-                    (col, None, None, None, None, None, None) for col in columns
-                ]
-                self._rows = [
-                    tuple(
-                        self._normalize_value(row.get(col))
-                        for col in columns
-                    )
-                    for row in rows_raw
-                ]
+                self._description = [(col, None, None, None, None, None, None) for col in columns]
+                self._rows = [tuple(self._normalize_value(row.get(col)) for col in columns) for row in rows_raw]
             else:
-                self._rows = [
-                    row if isinstance(row, tuple) else (row,) for row in rows_raw
-                ]
+                self._rows = [row if isinstance(row, tuple) else (row,) for row in rows_raw]
         else:
             self._rows = []
 
@@ -928,57 +916,98 @@ class CouchbaseCursor:
         """
         # N1QL reserved words that conflict when used as field names.
         n1ql_field_reserved = {
-            "path", "value", "type", "index", "key", "order",
-            "offset", "limit", "role", "scope", "level", "depth",
+            "path",
+            "value",
+            "type",
+            "index",
+            "key",
+            "order",
+            "offset",
+            "limit",
+            "role",
+            "scope",
+            "level",
+            "depth",
         }
         # SQL keywords that should NOT be quoted.
         sql_keywords = {
-            "set", "where", "and", "or", "not", "in", "from", "select",
-            "update", "delete", "insert", "into", "values", "as", "on",
-            "join", "inner", "left", "right", "outer", "having", "group",
-            "by", "order", "asc", "desc", "limit", "offset", "null",
-            "is", "between", "like", "distinct", "count", "sum", "avg",
-            "min", "max", "length", "true", "false",
+            "set",
+            "where",
+            "and",
+            "or",
+            "not",
+            "in",
+            "from",
+            "select",
+            "update",
+            "delete",
+            "insert",
+            "into",
+            "values",
+            "as",
+            "on",
+            "join",
+            "inner",
+            "left",
+            "right",
+            "outer",
+            "having",
+            "group",
+            "by",
+            "order",
+            "asc",
+            "desc",
+            "limit",
+            "offset",
+            "null",
+            "is",
+            "between",
+            "like",
+            "distinct",
+            "count",
+            "sum",
+            "avg",
+            "min",
+            "max",
+            "length",
+            "true",
+            "false",
         }
 
         def quote_field_identifiers(text):
             """Quote field names that are N1QL reserved words."""
+
             def replacer(m):
                 word = m.group(0)
                 wl = word.lower()
                 if wl in n1ql_field_reserved and wl not in sql_keywords and not word.startswith("`"):
                     return f"`{word}`"
                 return word
+
             return re.sub(r"(?<![`.\w])(\w+)(?=\s*[=!<>]|\s*\)|\s*,)", replacer, text)
 
         # Fix UPDATE with bare table name.
-        update_match = re.match(
-            r"(UPDATE\s+)(`?\w+`?)(\s+SET\s+)", sql, re.IGNORECASE
-        )
+        update_match = re.match(r"(UPDATE\s+)(`?\w+`?)(\s+SET\s+)", sql, re.IGNORECASE)
         if update_match:
             table = update_match.group(2).strip("`")
             if "." not in table:
                 keyspace = f"`{self._bucket_name}`.`{self._scope_name}`.`{table}`"
-                rest = sql[update_match.end():]
+                rest = sql[update_match.end() :]
                 rest = quote_field_identifiers(rest)
                 return f"UPDATE {keyspace} SET {rest}"
 
         # Fix DELETE with bare table name.
-        delete_match = re.match(
-            r"(DELETE\s+FROM\s+)(`?\w+`?)(\s)", sql, re.IGNORECASE
-        )
+        delete_match = re.match(r"(DELETE\s+FROM\s+)(`?\w+`?)(\s)", sql, re.IGNORECASE)
         if delete_match:
             table = delete_match.group(2).strip("`")
             if "." not in table and self._bucket_name not in table:
                 keyspace = f"`{self._bucket_name}`.`{self._scope_name}`.`{table}`"
-                rest = sql[delete_match.end():]
+                rest = sql[delete_match.end() :]
                 return f"DELETE FROM {keyspace} {rest}"
 
         # Fix SELECT with bare table name in FROM — but only for the first
         # FROM that doesn't already have a keyspace.
-        select_from_match = re.search(
-            r"(\bFROM\s+)(`?\w+`?)(\s|$)", sql, re.IGNORECASE
-        )
+        select_from_match = re.search(r"(\bFROM\s+)(`?\w+`?)(\s|$)", sql, re.IGNORECASE)
         if select_from_match:
             table = select_from_match.group(2).strip("`")
             if (
@@ -1011,12 +1040,12 @@ class CouchbaseCursor:
         if size is None:
             size = 1
         end = min(self._row_index + size, len(self._rows))
-        rows = self._rows[self._row_index:end]
+        rows = self._rows[self._row_index : end]
         self._row_index = end
         return rows
 
     def fetchall(self) -> list[tuple]:
-        rows = self._rows[self._row_index:]
+        rows = self._rows[self._row_index :]
         self._row_index = len(self._rows)
         return rows
 

@@ -154,9 +154,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     }
 
     # N1QL pattern operations for non-string RHS.
-    pattern_esc = (
-        r"REPLACE(REPLACE(REPLACE({}, '\', '\\'), '%%', '\%%'), '_', '\_')"
-    )
+    pattern_esc = r"REPLACE(REPLACE(REPLACE({}, '\', '\\'), '%%', '\%%'), '_', '\_')"
     pattern_ops = {
         "contains": r"LIKE '%%' || {} || '%%'",
         "icontains": r"LIKE '%%' || LOWER({}) || '%%'",
@@ -165,7 +163,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         "endswith": r"LIKE '%%' || {}",
         "iendswith": r"LIKE '%%' || LOWER({})",
     }
-
 
     SchemaEditorClass = DatabaseSchemaEditor
     client_class = DatabaseClient
@@ -208,28 +205,18 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         from couchbase.cluster import Cluster
         from couchbase.options import ClusterOptions, ClusterTimeoutOptions
 
-        authenticator = PasswordAuthenticator(
-            conn_params["username"], conn_params["password"]
-        )
+        authenticator = PasswordAuthenticator(conn_params["username"], conn_params["password"])
 
-        timeout_config = self.settings_dict.get("OPTIONS", {}).get(
-            "timeout_options", {}
-        )
+        timeout_config = self.settings_dict.get("OPTIONS", {}).get("timeout_options", {})
         timeout_kwargs = {}
         if "kv_timeout" in timeout_config:
-            timeout_kwargs["kv_timeout"] = timedelta(
-                seconds=timeout_config["kv_timeout"]
-            )
+            timeout_kwargs["kv_timeout"] = timedelta(seconds=timeout_config["kv_timeout"])
         if "query_timeout" in timeout_config:
-            timeout_kwargs["query_timeout"] = timedelta(
-                seconds=timeout_config["query_timeout"]
-            )
+            timeout_kwargs["query_timeout"] = timedelta(seconds=timeout_config["query_timeout"])
 
         cluster_opts = ClusterOptions(
             authenticator,
-            timeout_options=(
-                ClusterTimeoutOptions(**timeout_kwargs) if timeout_kwargs else None
-            ),
+            timeout_options=(ClusterTimeoutOptions(**timeout_kwargs) if timeout_kwargs else None),
         )
 
         conn_string = conn_params["connection_string"]
@@ -238,9 +225,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
         cluster = Cluster.connect(conn_string, cluster_opts)
 
-        wait_timeout = self.settings_dict.get("OPTIONS", {}).get(
-            "wait_until_ready_timeout", 20
-        )
+        wait_timeout = self.settings_dict.get("OPTIONS", {}).get("wait_until_ready_timeout", 20)
         cluster.wait_until_ready(timedelta(seconds=wait_timeout))
 
         self._cluster = cluster

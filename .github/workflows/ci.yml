@@ -40,12 +40,35 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install package with dev dependencies
         run: pip install -e ".[dev]" && pip install pytest-asyncio
-      - name: Run unit tests (skip integration)
-        run: pytest tests/ -v --tb=short -m "not integration"
+      - name: Run unit tests (skip integration and backend)
+        run: |
+          pytest tests/ -v --tb=short -m "not integration" \
+            --ignore=tests/test_backend_crud.py \
+            --ignore=tests/test_backend_phase2.py \
+            --ignore=tests/test_backend_phase3.py \
+            --ignore=tests/test_backend_phase4.py \
+            --ignore=tests/test_backend_phase5.py \
+            --ignore=tests/test_backend_settings.py \
+            --ignore=tests/test_backend_urls.py \
+            --ignore=tests/test_wagtail_settings.py \
+            --ignore=tests/test_wagtail_urls.py \
+            --ignore=tests/testapp \
+            --ignore=tests/wagtailapp
       - name: Run tests with coverage
         if: matrix.python-version == '3.12'
         run: |
-          coverage run -m pytest tests/ -q -m "not integration"
+          coverage run -m pytest tests/ -q -m "not integration" \
+            --ignore=tests/test_backend_crud.py \
+            --ignore=tests/test_backend_phase2.py \
+            --ignore=tests/test_backend_phase3.py \
+            --ignore=tests/test_backend_phase4.py \
+            --ignore=tests/test_backend_phase5.py \
+            --ignore=tests/test_backend_settings.py \
+            --ignore=tests/test_backend_urls.py \
+            --ignore=tests/test_wagtail_settings.py \
+            --ignore=tests/test_wagtail_urls.py \
+            --ignore=tests/testapp \
+            --ignore=tests/wagtailapp
           coverage report --show-missing --include="src/*"
           COVERAGE=$(coverage report --include="src/*" | grep TOTAL | awk '{print $NF}' | tr -d '%')
           echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV

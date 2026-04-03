@@ -34,9 +34,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
 
     def _get_bucket_and_scope(self):
         bucket_name = self.connection.settings_dict["NAME"]
-        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get(
-            "SCOPE", "_default"
-        )
+        scope_name = self.connection.settings_dict.get("OPTIONS", {}).get("SCOPE", "_default")
         return bucket_name, scope_name
 
     def _collection_exists(self, bucket, scope_name, collection_name):
@@ -61,7 +59,8 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         if self._collection_exists(bucket, scope_name, collection_name):
             logger.debug(
                 "Collection %s.%s already exists, skipping creation",
-                scope_name, collection_name,
+                scope_name,
+                collection_name,
             )
             return
 
@@ -76,6 +75,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         # Create collection.
         try:
             from couchbase.management.collections import CollectionSpec
+
             cm = bucket.collections()
             cm.create_collection(CollectionSpec(collection_name, scope_name))
             logger.info("Created collection %s.%s", scope_name, collection_name)
@@ -104,7 +104,8 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
                     continue
                 logger.warning(
                     "Could not create primary index on %s: %s",
-                    collection_name, e,
+                    collection_name,
+                    e,
                 )
 
     def create_model(self, model):
@@ -175,7 +176,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         keyspace = f"{qn(bucket_name)}.{qn(scope_name)}.{qn(collection_name)}"
 
         col_names = [f.column for f in fields]
-        index_name = "uniq_%s_%s" % (collection_name, "_".join(col_names))
+        index_name = "uniq_{}_{}".format(collection_name, "_".join(col_names))
         cols_sql = ", ".join(qn(c) for c in col_names)
 
         sql = f"CREATE INDEX {qn(index_name)} ON {keyspace} ({cols_sql})"
@@ -196,7 +197,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         keyspace = f"{qn(bucket_name)}.{qn(scope_name)}.{qn(collection_name)}"
 
         col_names = [f.column for f in fields]
-        index_name = "uniq_%s_%s" % (collection_name, "_".join(col_names))
+        index_name = "uniq_{}_{}".format(collection_name, "_".join(col_names))
 
         sql = f"DROP INDEX {qn(index_name)} ON {keyspace}"
         try:
@@ -212,11 +213,8 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         qn = self.connection.ops.quote_name
         keyspace = f"{qn(bucket_name)}.{qn(scope_name)}.{qn(collection_name)}"
 
-        col_names = [
-            model._meta.get_field(field_name).column
-            for field_name in index.fields
-        ]
-        index_name = index.name or "idx_%s_%s" % (
+        col_names = [model._meta.get_field(field_name).column for field_name in index.fields]
+        index_name = index.name or "idx_{}_{}".format(
             collection_name,
             "_".join(col_names),
         )
@@ -240,7 +238,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         qn = self.connection.ops.quote_name
         keyspace = f"{qn(bucket_name)}.{qn(scope_name)}.{qn(collection_name)}"
 
-        index_name = index.name or "idx_%s_%s" % (
+        index_name = index.name or "idx_{}_{}".format(
             collection_name,
             "_".join(index.fields),
         )
@@ -256,9 +254,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         from django.db.models.constraints import UniqueConstraint
 
         if isinstance(constraint, UniqueConstraint):
-            fields = [
-                model._meta.get_field(field_name) for field_name in constraint.fields
-            ]
+            fields = [model._meta.get_field(field_name) for field_name in constraint.fields]
             self._create_unique_index(model, fields)
 
     def remove_constraint(self, model, constraint):
@@ -266,9 +262,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         from django.db.models.constraints import UniqueConstraint
 
         if isinstance(constraint, UniqueConstraint):
-            fields = [
-                model._meta.get_field(field_name) for field_name in constraint.fields
-            ]
+            fields = [model._meta.get_field(field_name) for field_name in constraint.fields]
             self._drop_unique_index(model, fields)
 
     def alter_unique_together(self, model, old_unique_together, new_unique_together):
@@ -301,7 +295,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             qn = self.connection.ops.quote_name
             keyspace = f"{qn(bucket_name)}.{qn(scope_name)}.{qn(collection_name)}"
             col_names = [model._meta.get_field(f).column for f in fields]
-            index_name = "idx_%s_%s" % (collection_name, "_".join(col_names))
+            index_name = "idx_{}_{}".format(collection_name, "_".join(col_names))
             cols_sql = ", ".join(qn(c) for c in col_names)
             sql = f"CREATE INDEX IF NOT EXISTS {qn(index_name)} ON {keyspace} ({cols_sql})"
             try:
@@ -310,14 +304,33 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             except Exception:
                 pass
 
-    def _create_unique_sql(self, model, fields, name=None, condition=None, deferrable=None, include=None, opclasses=None, expressions=None):
+    def _create_unique_sql(
+        self,
+        model,
+        fields,
+        name=None,
+        condition=None,
+        deferrable=None,
+        include=None,
+        opclasses=None,
+        expressions=None,
+    ):
         """Override to return None — unique constraints are handled by _create_unique_index."""
         if fields:
             field_objs = [model._meta.get_field(f) if isinstance(f, str) else f for f in fields]
             self._create_unique_index(model, field_objs)
         return None
 
-    def _delete_unique_sql(self, model, name, condition=None, deferrable=None, include=None, opclasses=None, expressions=None):
+    def _delete_unique_sql(
+        self,
+        model,
+        name,
+        condition=None,
+        deferrable=None,
+        include=None,
+        opclasses=None,
+        expressions=None,
+    ):
         """Override to return None."""
         return None
 
@@ -352,8 +365,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         # Convert %s placeholders if needed.
         if params:
             sql = sql % tuple(
-                "'%s'" % str(p).replace("'", "''") if isinstance(p, str) else str(p)
-                for p in params
+                "'{}'".format(str(p).replace("'", "''")) if isinstance(p, str) else str(p) for p in params
             )
         try:
             self.connection.ensure_connection()

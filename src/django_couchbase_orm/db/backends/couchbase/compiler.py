@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from itertools import chain
-
 from django.db.models.sql import compiler as base_compiler
-from django.db.models.sql.constants import MULTI, NO_RESULTS, SINGLE
 
 
 class CouchbaseCompilerMixin:
@@ -33,9 +30,7 @@ class SQLCompiler(CouchbaseCompilerMixin, base_compiler.SQLCompiler):
         forcing aliases on aggregation queries where extra columns would
         break N1QL's strict GROUP BY.
         """
-        sql, params = super().as_sql(
-            with_limits=with_limits, with_col_aliases=with_col_aliases
-        )
+        sql, params = super().as_sql(with_limits=with_limits, with_col_aliases=with_col_aliases)
         return sql, params
 
     def get_from_clause(self):
@@ -51,7 +46,7 @@ class SQLCompiler(CouchbaseCompilerMixin, base_compiler.SQLCompiler):
                 continue
             clause_sql, clause_params = self.compile(from_clause)
             # Replace the simple quoted table name with the full keyspace.
-            table_name = from_clause.table_name if hasattr(from_clause, 'table_name') else alias
+            table_name = from_clause.table_name if hasattr(from_clause, "table_name") else alias
             quoted_table = self.connection.ops.quote_name(table_name)
             keyspace = self._get_keyspace(table_name)
             clause_sql = clause_sql.replace(quoted_table, keyspace, 1)
@@ -59,11 +54,8 @@ class SQLCompiler(CouchbaseCompilerMixin, base_compiler.SQLCompiler):
             params.extend(clause_params)
         for t in self.query.extra_tables:
             alias, _ = self.query.table_alias(t)
-            if (
-                alias not in self.query.alias_map
-                or self.query.alias_refcount[alias] == 1
-            ):
-                result.append(", %s" % self._get_keyspace(t))
+            if alias not in self.query.alias_map or self.query.alias_refcount[alias] == 1:
+                result.append(f", {self._get_keyspace(t)}")
         return result, params
 
     def quote_name_unless_alias(self, name):
@@ -108,7 +100,6 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
         integer document key (for compatibility with Django/Wagtail).
         """
         opts = self.query.get_meta()
-        qn = self.connection.ops.quote_name
         keyspace = self._get_keyspace(opts.db_table)
         result_sqls = []
 
@@ -211,17 +202,14 @@ class SQLUpdateCompiler(CouchbaseCompilerMixin, base_compiler.SQLUpdateCompiler)
 
         for field, model, val in self.query.values:
             if hasattr(val, "resolve_expression"):
-                val = val.resolve_expression(
-                    self.query, allow_joins=False, for_save=True
-                )
+                val = val.resolve_expression(self.query, allow_joins=False, for_save=True)
             elif hasattr(val, "prepare_database_save"):
                 if field.remote_field:
                     val = val.prepare_database_save(field)
                 else:
                     raise TypeError(
-                        "Tried to update field %s with a model instance, %r. "
-                        "Use a value compatible with %s."
-                        % (field, val, field.__class__.__name__)
+                        f"Tried to update field {field} with a model instance, {val!r}. "
+                        f"Use a value compatible with {field.__class__.__name__}."
                     )
             val = field.get_db_prep_save(val, connection=self.connection)
 
@@ -233,25 +221,20 @@ class SQLUpdateCompiler(CouchbaseCompilerMixin, base_compiler.SQLUpdateCompiler)
             name = field.column
             if hasattr(val, "as_sql"):
                 sql, params = self.compile(val)
-                values.append(
-                    "%s = %s"
-                    % (self.connection.ops.quote_name(name), placeholder % sql)
-                )
+                values.append(f"{self.connection.ops.quote_name(name)} = {placeholder % sql}")
                 update_params.extend(params)
             elif val is not None:
-                values.append(
-                    "%s = %s" % (self.connection.ops.quote_name(name), placeholder)
-                )
+                values.append(f"{self.connection.ops.quote_name(name)} = {placeholder}")
                 update_params.append(val)
             else:
-                values.append("%s = NULL" % self.connection.ops.quote_name(name))
+                values.append(f"{self.connection.ops.quote_name(name)} = NULL")
 
         table = self.query.base_table
         keyspace = self._get_keyspace(table)
         qn = self.connection.ops.quote_name
         # Use an alias so WHERE clause field references like `auth_user`.`id` work.
         result = [
-            "UPDATE %s AS %s SET" % (keyspace, qn(table)),
+            f"UPDATE {keyspace} AS {qn(table)} SET",
             ", ".join(values),
         ]
         try:
@@ -259,7 +242,7 @@ class SQLUpdateCompiler(CouchbaseCompilerMixin, base_compiler.SQLUpdateCompiler)
         except base_compiler.FullResultSet:
             params = []
         else:
-            result.append("WHERE %s" % where)
+            result.append(f"WHERE {where}")
 
         return " ".join(result), tuple(update_params + list(params))
 

@@ -42,16 +42,12 @@ def get_next_id(cluster, bucket_name, scope_name, table_name):
     counter_key = f"_counter:{table_name}"
 
     try:
-        result = counter_collection.binary().increment(
-            counter_key, IncrementOptions(initial=SignedInt64(1))
-        )
+        result = counter_collection.binary().increment(counter_key, IncrementOptions(initial=SignedInt64(1)))
         return result.content
     except Exception:
         with _counter_lock:
             try:
-                result = counter_collection.binary().increment(
-                    counter_key, IncrementOptions(initial=SignedInt64(1))
-                )
+                result = counter_collection.binary().increment(counter_key, IncrementOptions(initial=SignedInt64(1)))
                 return result.content
             except Exception:
                 return 1

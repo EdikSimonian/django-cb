@@ -40,9 +40,7 @@ class DatabaseOperations(BaseDatabaseOperations):
 
     def bulk_insert_sql(self, fields, placeholder_rows):
         # Return the VALUES clause for multi-row INSERT.
-        return "VALUES " + ", ".join(
-            "(%s)" % ", ".join(row) for row in placeholder_rows
-        )
+        return "VALUES " + ", ".join("({})".format(", ".join(row)) for row in placeholder_rows)
 
     # --- Date/time operations using N1QL date functions ---
 
@@ -197,6 +195,7 @@ class DatabaseOperations(BaseDatabaseOperations):
             return None
         if isinstance(value, str):
             from django.utils.dateparse import parse_date
+
             return parse_date(value)
         return value
 
@@ -205,6 +204,7 @@ class DatabaseOperations(BaseDatabaseOperations):
             return None
         if isinstance(value, str):
             from django.utils.dateparse import parse_datetime
+
             return parse_datetime(value)
         return value
 
@@ -213,6 +213,7 @@ class DatabaseOperations(BaseDatabaseOperations):
             return None
         if isinstance(value, str):
             from django.utils.dateparse import parse_time
+
             return parse_time(value)
         return value
 
@@ -236,10 +237,16 @@ class DatabaseOperations(BaseDatabaseOperations):
         elif internal_type == "TimeField":
             converters.append(self.convert_timefield_value)
         elif internal_type in (
-            "IntegerField", "BigIntegerField", "SmallIntegerField",
-            "PositiveIntegerField", "PositiveBigIntegerField",
-            "PositiveSmallIntegerField", "AutoField", "BigAutoField",
-            "SmallAutoField", "CouchbaseAutoField",
+            "IntegerField",
+            "BigIntegerField",
+            "SmallIntegerField",
+            "PositiveIntegerField",
+            "PositiveBigIntegerField",
+            "PositiveSmallIntegerField",
+            "AutoField",
+            "BigAutoField",
+            "SmallAutoField",
+            "CouchbaseAutoField",
         ):
             converters.append(self.convert_integerfield_value)
         return converters

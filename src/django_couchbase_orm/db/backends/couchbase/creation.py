@@ -16,9 +16,7 @@ class DatabaseCreation(BaseDatabaseCreation):
         For Couchbase, we reuse the same bucket. The TEST NAME setting should
         point to the same bucket to avoid creating a new one.
         """
-        return self.connection.settings_dict.get("TEST", {}).get(
-            "NAME", self.connection.settings_dict["NAME"]
-        )
+        return self.connection.settings_dict.get("TEST", {}).get("NAME", self.connection.settings_dict["NAME"])
 
     def _create_test_db(self, verbosity, autoclobber, keepdb=False):
         """For Couchbase, we reuse the existing bucket.
