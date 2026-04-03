@@ -1,19 +1,19 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install system dependencies for couchbase SDK + TLS certificates
+# Install system dependencies for Couchbase SDK
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake libssl-dev ca-certificates \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy everything
+# Install the ORM package
 COPY . .
+RUN pip install --no-cache-dir -e .
 
-# Install django-couchbase-orm package + example dependencies
-RUN pip install --no-cache-dir -e . && \
-    pip install --no-cache-dir -r example/requirements.txt
+# Install example app dependencies
+RUN pip install --no-cache-dir -r example/requirements.txt
 
 # Collect static files
 RUN cd example && python manage.py collectstatic --noinput 2>/dev/null || true
@@ -22,4 +22,4 @@ WORKDIR /app/example
 
 EXPOSE ${PORT:-8000}
 
-CMD uvicorn beerapp.asgi:application --host 0.0.0.0 --port ${PORT:-8000}
+CMD gunicorn mysite.wsgi --bind 0.0.0.0:${PORT:-8000} --workers 2
