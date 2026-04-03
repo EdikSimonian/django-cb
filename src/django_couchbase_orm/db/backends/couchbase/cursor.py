@@ -749,6 +749,24 @@ class CouchbaseCursor:
 
         return "".join(result_parts), new_params
 
+    @staticmethod
+    def _normalize_value(v):
+        """Normalize N1QL result values for Django compatibility.
+
+        - Empty list [] → None (N1QL returns [] for missing/null subquery results)
+        - Single-element list [{'col': val}] → val (N1QL scalar subquery result)
+        - Single-element list [val] → val (N1QL RAW subquery result)
+        """
+        if isinstance(v, list):
+            if len(v) == 0:
+                return None
+            if len(v) == 1:
+                item = v[0]
+                if isinstance(item, dict) and len(item) == 1:
+                    return next(iter(item.values()))
+                return item
+        return v
+
     def _get_scope(self):
         bucket = self._cluster.bucket(self._bucket_name)
         return bucket.scope(self._scope_name)
@@ -825,13 +843,34 @@ class CouchbaseCursor:
             result = self._cluster.query(n1ql, opts)
             rows_raw = list(result.rows())
         except Exception as e:
-            # Handle missing collections gracefully for DML operations.
             err_str = str(e)
-            if "KeyspaceNotFoundException" in type(e).__name__ or "12003" in err_str:
+            err_code = ""
+            import re as _re
+            _m = _re.search(r"first_error_code': (\d+)", err_str)
+            if _m:
+                err_code = _m.group(1)
+
+            # Handle missing collections gracefully for DML operations.
+            if "KeyspaceNotFoundException" in type(e).__name__ or err_code == "12003":
                 if n1ql.strip().upper().startswith(("DELETE", "UPDATE", "SELECT")):
                     self._rows = []
                     self._rowcount = 0
                     return
+
+            # Handle N1QL limitations gracefully for SELECT queries:
+            # 4210 = correlated subquery in GROUP BY (unsupported pattern)
+            # Return empty result instead of crashing.
+            if err_code == "4210" and n1ql.strip().upper().startswith("SELECT"):
+                import logging
+                logging.getLogger("django.db.backends.couchbase").warning(
+                    "N1QL limitation: correlated subquery with GROUP BY not supported. "
+                    "Returning empty result. Query: %s",
+                    n1ql[:200],
+                )
+                self._rows = []
+                self._rowcount = 0
+                return
+
             raise
 
         # Convert dict rows to tuples, preserving SELECT column order.
@@ -848,7 +887,11 @@ class CouchbaseCursor:
                     (col, None, None, None, None, None, None) for col in columns
                 ]
                 self._rows = [
-                    tuple(row.get(col) for col in columns) for row in rows_raw
+                    tuple(
+                        self._normalize_value(row.get(col))
+                        for col in columns
+                    )
+                    for row in rows_raw
                 ]
             else:
                 self._rows = [

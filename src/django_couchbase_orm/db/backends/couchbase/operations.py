@@ -216,6 +216,16 @@ class DatabaseOperations(BaseDatabaseOperations):
             return parse_time(value)
         return value
 
+    def convert_integerfield_value(self, value, expression, connection):
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return None if len(value) == 0 else value[0] if len(value) == 1 else value
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return value
+
     def get_db_converters(self, expression):
         converters = super().get_db_converters(expression)
         internal_type = expression.output_field.get_internal_type()
@@ -225,6 +235,13 @@ class DatabaseOperations(BaseDatabaseOperations):
             converters.append(self.convert_datetimefield_value)
         elif internal_type == "TimeField":
             converters.append(self.convert_timefield_value)
+        elif internal_type in (
+            "IntegerField", "BigIntegerField", "SmallIntegerField",
+            "PositiveIntegerField", "PositiveBigIntegerField",
+            "PositiveSmallIntegerField", "AutoField", "BigAutoField",
+            "SmallAutoField", "CouchbaseAutoField",
+        ):
+            converters.append(self.convert_integerfield_value)
         return converters
 
     def combine_expression(self, connector, sub_expressions):
