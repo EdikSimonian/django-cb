@@ -8,13 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install example requirements first (cached unless requirements.txt changes)
-COPY example/requirements.txt example/requirements.txt
-RUN pip install --no-cache-dir -r example/requirements.txt
-
-# Copy everything and install the ORM package
+# Install the ORM package first (requirements.txt depends on it)
 COPY . .
 RUN pip install --no-cache-dir -e .
+
+# Install example app dependencies
+RUN pip install --no-cache-dir -r example/requirements.txt
 
 # Collect static files
 RUN cd example && python manage.py collectstatic --noinput 2>/dev/null || true
