@@ -147,17 +147,30 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
     def add_field(self, model, field):
         """Add a field — mostly a no-op for schemaless Couchbase.
 
-        If the field has a default, we could update existing documents,
-        but for Phase 1 we skip this (new documents will get the default
-        from Django).
+        For M2M fields, creates the through-table collection.
+        For unique fields, creates a unique index.
         """
+        # M2M fields need their through-table collection created.
+        if field.many_to_many:
+            through = field.remote_field.through
+            if through._meta.auto_created:
+                self.create_model(through)
+            return
+
         # Create unique index if needed.
         if field.unique and not field.primary_key:
             self._create_unique_index(model, [field])
 
     def remove_field(self, model, field):
-        """Remove a field — no-op for schemaless Couchbase."""
-        pass
+        """Remove a field — no-op for schemaless Couchbase.
+
+        For M2M fields, drops the through-table collection.
+        """
+        if field.many_to_many:
+            through = field.remote_field.through
+            if through._meta.auto_created:
+                self.delete_model(through)
+            return
 
     def alter_field(self, model, old_field, new_field, strict=False):
         """Alter a field — mostly no-op. Handle unique constraint changes."""
