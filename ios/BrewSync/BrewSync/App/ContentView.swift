@@ -43,7 +43,7 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onChange(of: auth.isAuthenticated) { _, authenticated in
+        .onChange(of: auth.isAuthenticated) { authenticated in
             if authenticated {
                 // Start database and replicator
                 try? DatabaseManager.shared.initialize()

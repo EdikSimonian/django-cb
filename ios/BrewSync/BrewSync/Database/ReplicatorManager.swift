@@ -24,7 +24,7 @@ class ReplicatorManager: ObservableObject {
     private init() {}
 
     func start() {
-        guard let db = DatabaseManager.shared.database else {
+        guard DatabaseManager.shared.database != nil else {
             print("[Replicator] Database not initialized")
             return
         }
@@ -42,20 +42,16 @@ class ReplicatorManager: ObservableObject {
 
         let endpoint = URLEndpoint(url: url)
 
+        // Collect all collections to sync
+        var collections: [Collection] = []
+        if let c = DatabaseManager.shared.beerCollection { collections.append(c) }
+        if let c = DatabaseManager.shared.breweryCollection { collections.append(c) }
+        if let c = DatabaseManager.shared.ratingCollection { collections.append(c) }
+
         var config = ReplicatorConfiguration(target: endpoint)
         config.replicatorType = .pushAndPull
         config.continuous = true
-
-        // Add all collections
-        if let beerCol = DatabaseManager.shared.beerCollection {
-            config.addCollection(beerCol)
-        }
-        if let breweryCol = DatabaseManager.shared.breweryCollection {
-            config.addCollection(breweryCol)
-        }
-        if let ratingCol = DatabaseManager.shared.ratingCollection {
-            config.addCollection(ratingCol)
-        }
+        config.addCollections(collections)
 
         // Authenticate with the OIDC session token
         config.authenticator = SessionAuthenticator(sessionID: idToken)
@@ -98,7 +94,7 @@ class ReplicatorManager: ObservableObject {
 
     func stop() {
         if let token = listenerToken {
-            replicator?.removeChangeListener(withToken: token)
+            token.remove()
             listenerToken = nil
         }
         replicator?.stop()

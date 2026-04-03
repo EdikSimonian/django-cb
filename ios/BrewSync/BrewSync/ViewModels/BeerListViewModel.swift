@@ -75,7 +75,7 @@ class BeerListViewModel: ObservableObject {
 
     func stopObserving() {
         if let token = queryToken {
-            liveQuery?.removeChangeListener(withToken: token)
+            token.remove()
             queryToken = nil
         }
     }
