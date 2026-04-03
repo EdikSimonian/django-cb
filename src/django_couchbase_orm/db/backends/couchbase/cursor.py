@@ -862,13 +862,15 @@ class CouchbaseCursor:
                     return
 
             # Handle N1QL limitations gracefully for SELECT queries:
+            # 3000 = syntax error (often from unsupported SQL patterns)
             # 4210 = correlated subquery in GROUP BY (unsupported pattern)
             # Return empty result instead of crashing.
-            if err_code == "4210" and n1ql.strip().upper().startswith("SELECT"):
+            if err_code in ("3000", "4210") and n1ql.strip().upper().startswith("SELECT"):
                 import logging
                 logging.getLogger("django.db.backends.couchbase").warning(
-                    "N1QL limitation: correlated subquery with GROUP BY not supported. "
+                    "N1QL limitation (error %s): unsupported query pattern. "
                     "Returning empty result. Query: %s",
+                    err_code,
                     n1ql[:200],
                 )
                 self._rows = []
