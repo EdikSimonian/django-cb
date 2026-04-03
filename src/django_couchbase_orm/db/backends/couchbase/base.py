@@ -82,8 +82,8 @@ def _patch_sql_functions():
         return
     _sql_functions_patched = True
 
-    from django.db.models.functions import Substr
     from django.db.models import Value
+    from django.db.models.functions import Substr
 
     def substr_as_couchbase(self, compiler, connection, **extra_context):
         # N1QL SUBSTR is 0-indexed, SQL SUBSTRING is 1-indexed.
