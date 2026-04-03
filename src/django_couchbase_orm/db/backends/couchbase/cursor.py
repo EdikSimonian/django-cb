@@ -703,27 +703,47 @@ class CouchbaseCursor:
 
         N1QL's IN operator expects a single array value, not a comma-separated list.
         """
-        # Find all IN (%s, %s, ...) and IN ((%s), (%s), ...) patterns.
-        # The second form appears when Django wraps each value in parens.
-        in_pattern = re.compile(
-            r"\bIN\s*\((\(?%s\)?(?:\s*,\s*\(?%s\)?)*)\)",
-            re.IGNORECASE,
-        )
+        # Find IN (%s, %s, ...) patterns.
+        # Match IN followed by ( then %s placeholders separated by commas then ).
+        # Each %s may optionally be wrapped in parens: (%s).
+        # We use a simple approach: find "IN (" then count parens to find the matching ")".
+        in_pattern = re.compile(r"\bIN\s*\(", re.IGNORECASE)
+
+        # Find all IN ( positions, then manually find the matching close paren
+        matches = []
+        for m in in_pattern.finditer(sql):
+            start = m.start()
+            m.end() - 1  # position of the opening (
+            # Find matching )
+            depth = 1
+            i = m.end()
+            while i < len(sql) and depth > 0:
+                if sql[i] == "(":
+                    depth += 1
+                elif sql[i] == ")":
+                    depth -= 1
+                i += 1
+            if depth == 0:
+                inner = sql[m.end() : i - 1]  # content inside the parens
+                # Check if it contains only %s placeholders (possibly wrapped in parens)
+                stripped = inner.replace("(", "").replace(")", "")
+                placeholders = [p.strip() for p in stripped.split(",")]
+                if all(p == "%s" for p in placeholders if p):
+                    matches.append((start, i, inner, len(placeholders)))
+
+        if not matches:
+            return sql, params
 
         new_params = []
         param_index = 0
         last_end = 0
         result_parts = []
 
-        for match in in_pattern.finditer(sql):
-            # Count how many %s are in this IN clause.
-            in_content = match.group(1)
-            placeholder_count = in_content.count("%s")
-
+        for start, end, inner, placeholder_count in matches:
             # Add everything before this match, consuming params along the way.
-            before = sql[last_end : match.start()]
+            before = sql[last_end:start]
             before_count = before.count("%s")
-            for i in range(before_count):
+            for _ in range(before_count):
                 new_params.append(params[param_index])
                 param_index += 1
             result_parts.append(before)
@@ -734,16 +754,12 @@ class CouchbaseCursor:
             new_params.append(list(array_values))
             result_parts.append("IN %s")
 
-            last_end = match.end()
-
-        if not result_parts:
-            # No IN clauses found — return unchanged.
-            return sql, params
+            last_end = end
 
         # Add the remainder.
         remainder = sql[last_end:]
         remainder_count = remainder.count("%s")
-        for i in range(remainder_count):
+        for _ in range(remainder_count):
             new_params.append(params[param_index])
             param_index += 1
         result_parts.append(remainder)
@@ -863,7 +879,7 @@ class CouchbaseCursor:
             # 3000 = syntax error (often from unsupported SQL patterns)
             # 4210 = correlated subquery in GROUP BY (unsupported pattern)
             # Return empty result instead of crashing.
-            if err_code in ("3000", "4210") and n1ql.strip().upper().startswith(("SELECT", "DELETE", "UPDATE")):
+            if err_code in ("3000", "4210") and n1ql.strip().upper().startswith("SELECT"):
                 import logging
 
                 logging.getLogger("django.db.backends.couchbase").warning(

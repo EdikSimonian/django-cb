@@ -89,6 +89,76 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
             table_name,
         )
 
+    def _find_existing_by_unique(self, opts, fields_data):
+        """Check if a document with matching unique_together fields exists.
+
+        If found, return its PK to prevent duplicate creation.
+        Couchbase has no database-level UNIQUE constraint, so we enforce
+        it at the application level during INSERT.
+        """
+        # Collect all uniqueness constraints
+        unique_sets = []
+
+        # unique_together from Meta
+        unique_together = getattr(opts, "unique_together", ())
+        for fields in unique_together:
+            unique_sets.append(fields)
+
+        # Single-field unique=True
+        for field in opts.local_fields:
+            if field.unique and not field.primary_key:
+                unique_sets.append((field.name,))
+
+        if not unique_sets:
+            return None
+
+        for unique_fields in unique_sets:
+            # Build WHERE clause for the unique fields
+            conditions = []
+            params = []
+            all_present = True
+            for field_name in unique_fields:
+                try:
+                    field = opts.get_field(field_name)
+                    col = field.column
+                except Exception:
+                    col = field_name
+                val = fields_data.get(col)
+                if val is None:
+                    all_present = False
+                    break
+                conditions.append(f"`{col}` = ${len(params) + 1}")
+                params.append(val)
+
+            if not all_present or not conditions:
+                continue
+
+            # Query for existing document
+            from couchbase.options import QueryOptions
+
+            bucket = self.connection.settings_dict["NAME"]
+            scope = self.connection.settings_dict.get("OPTIONS", {}).get("SCOPE", "_default")
+            keyspace = f"`{bucket}`.`{scope}`.`{opts.db_table}`"
+            where = " AND ".join(conditions)
+            sql = f"SELECT `id` FROM {keyspace} WHERE {where} LIMIT 1"
+
+            try:
+                result = self.connection.connection.query(
+                    sql,
+                    QueryOptions(
+                        positional_parameters=params,
+                        scan_consistency="request_plus",
+                    ),
+                )
+                for row in result.rows():
+                    existing_id = row.get("id")
+                    if existing_id is not None:
+                        return existing_id
+            except Exception:
+                pass
+
+        return None
+
     def as_sql(self):
         """Generate N1QL UPSERT statements.
 
@@ -118,12 +188,10 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
                     col_name = field.column
 
                     if field.primary_key:
-                        if value is None or (hasattr(value, "as_sql")):
-                            doc_id = self._generate_pk(opts.db_table)
+                        if value is None or hasattr(value, "as_sql"):
+                            doc_id = None  # Will be resolved after all fields are collected
                         else:
                             doc_id = value
-                        # Store PK in document body so SELECT can find it.
-                        fields_data[col_name] = doc_id
                         continue
 
                     if hasattr(value, "as_sql"):
@@ -136,8 +204,15 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
                         fields_data[col_name] = value
 
             if doc_id is None:
-                doc_id = self._generate_pk(opts.db_table)
-                fields_data[pk_col_name] = doc_id
+                # Check unique_together constraints to prevent duplicates.
+                existing_pk = self._find_existing_by_unique(opts, fields_data)
+                if existing_pk is not None:
+                    doc_id = existing_pk
+                else:
+                    doc_id = self._generate_pk(opts.db_table)
+
+            # Store PK in document body so SELECT can find it.
+            fields_data[pk_col_name] = doc_id
 
             # Use UPSERT so re-saving with the same PK works (no duplicate key errors).
             # Couchbase document KEY must be a string.
