@@ -97,19 +97,19 @@ class TestDjangoAdmin:
 
     def test_admin_index(self):
         client, user = self._get_admin_client()
-        response = client.get("/admin/")
+        response = client.get("/django-admin/")
         assert response.status_code == 200
         user.delete()
 
     def test_admin_user_changelist(self):
         client, user = self._get_admin_client()
-        response = client.get("/admin/auth/user/")
+        response = client.get("/django-admin/auth/user/")
         assert response.status_code == 200
         user.delete()
 
     def test_admin_group_changelist(self):
         client, user = self._get_admin_client()
-        response = client.get("/admin/auth/group/")
+        response = client.get("/django-admin/auth/group/")
         assert response.status_code == 200
         user.delete()
 
@@ -117,12 +117,12 @@ class TestDjangoAdmin:
         from django.contrib.auth.models import Group
 
         client, user = self._get_admin_client()
-        response = client.get("/admin/auth/group/add/")
+        response = client.get("/django-admin/auth/group/add/")
         assert response.status_code == 200
 
         # POST to create
         name = f"admin_add_{uuid.uuid4().hex[:6]}"
-        response = client.post("/admin/auth/group/add/", {"name": name}, follow=True)
+        response = client.post("/django-admin/auth/group/add/", {"name": name}, follow=True)
         assert response.status_code == 200
         assert Group.objects.filter(name=name).exists()
         Group.objects.filter(name=name).delete()
@@ -134,7 +134,7 @@ class TestDjangoAdmin:
         client, user = self._get_admin_client()
         g = Group.objects.create(name=f"admin_chg_{uuid.uuid4().hex[:6]}")
 
-        response = client.get(f"/admin/auth/group/{g.pk}/change/")
+        response = client.get(f"/django-admin/auth/group/{g.pk}/change/")
         assert response.status_code == 200
         g.delete()
         user.delete()
@@ -147,7 +147,7 @@ class TestDjangoAdmin:
         pk = g.pk
 
         response = client.post(
-            f"/admin/auth/group/{pk}/delete/", {"post": "yes"}, follow=True
+            f"/django-admin/auth/group/{pk}/delete/", {"post": "yes"}, follow=True
         )
         assert response.status_code == 200
         assert not Group.objects.filter(pk=pk).exists()
@@ -161,7 +161,7 @@ class TestDjangoAdmin:
             f"searchable_{uuid.uuid4().hex[:6]}", "s@test.com", "pass"
         )
 
-        response = client.get("/admin/auth/user/?q=searchable")
+        response = client.get("/django-admin/auth/user/?q=searchable")
         assert response.status_code == 200
         User.objects.filter(username__startswith="searchable").delete()
         user.delete()

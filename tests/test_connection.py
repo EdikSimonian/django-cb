@@ -52,8 +52,9 @@ class TestGetConfig:
             _get_config("nonexistent")
 
     @override_settings()
+    @override_settings(DATABASES={}, COUCHBASE=None)
     def test_no_couchbase_setting(self):
-        # Remove COUCHBASE from settings
+        # Remove COUCHBASE from settings so auto-derivation from DATABASES also fails
         from django.conf import settings
         if hasattr(settings, 'COUCHBASE'):
             delattr(settings, 'COUCHBASE')

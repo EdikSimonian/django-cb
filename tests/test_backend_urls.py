@@ -1,6 +1,17 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("django-admin/", admin.site.urls),
 ]
+
+try:
+    from wagtail import urls as wagtail_urls
+    from wagtail.admin import urls as wagtailadmin_urls
+
+    urlpatterns += [
+        path("admin/", include(wagtailadmin_urls)),
+        path("", include(wagtail_urls)),
+    ]
+except ImportError:
+    pass
