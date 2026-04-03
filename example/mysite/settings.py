@@ -9,9 +9,17 @@ import os
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-not-for-production")
 
-DEBUG = os.environ.get("DEBUG", "True").lower() in ("true", "1")
+DEBUG = os.environ.get("DJANGO_DEBUG", os.environ.get("DEBUG", "True")).lower() in ("true", "1")
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = os.environ.get(
+    "DJANGO_ALLOWED_HOSTS", os.environ.get("ALLOWED_HOSTS", "*")
+).split(",")
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 # --- Couchbase Database Backend ---
 DATABASES = {
@@ -20,7 +28,7 @@ DATABASES = {
         "NAME": os.environ.get("CB_BUCKET", "mybucket"),
         "USER": os.environ.get("CB_USERNAME", "Administrator"),
         "PASSWORD": os.environ.get("CB_PASSWORD", "password"),
-        "HOST": os.environ.get("CB_HOST", "couchbase://localhost"),
+        "HOST": os.environ.get("CB_CONNECTION_STRING", os.environ.get("CB_HOST", "couchbase://localhost")),
         "OPTIONS": {
             "SCOPE": os.environ.get("CB_SCOPE", "_default"),
         },
