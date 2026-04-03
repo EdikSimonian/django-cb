@@ -14,5 +14,6 @@ htmlcov/
 tests/
 docs/
 ios/
-*.md
+CHANGELOG.md
+CONTRIBUTING.md
 .github/
