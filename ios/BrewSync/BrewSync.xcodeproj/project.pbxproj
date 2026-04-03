@@ -14,6 +14,7 @@
 		1CA990F7EEAF1556DA7D65C6 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFE68393A0BC5A898E29A8E /* KeychainHelper.swift */; };
 		3B03E0BF8445422FED6A2E80 /* BeerFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50531C7B5317752202671FD1 /* BeerFormView.swift */; };
 		40F96FA128DF9E59AA92A1AF /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF82EE44E0A99773B284BA7 /* Theme.swift */; };
+		460822947E3F10E8909F2E48 /* OIDCWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED10D1E0A4B8482DF8889137 /* OIDCWebView.swift */; };
 		4F3FA3B005F1BE4F6C7422C4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 899A78E977A2F2F02117C86C /* ContentView.swift */; };
 		58EE7DECDE633F5130A4BFC9 /* DatabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5D68B7ECB1158C7BAA9F34 /* DatabaseManager.swift */; };
 		63DA00DDAA2A1080F2AFB090 /* BeerDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8667BEF65EF46B90ABB6E525 /* BeerDetailViewModel.swift */; };
@@ -42,7 +43,7 @@
 		7F4582592EC95A43BFD0F1B8 /* BreweryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryListView.swift; sourceTree = "<group>"; };
 		8667BEF65EF46B90ABB6E525 /* BeerDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerDetailViewModel.swift; sourceTree = "<group>"; };
 		899A78E977A2F2F02117C86C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		9059FB563330BB890B4A9204 /* BrewSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BrewSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9059FB563330BB890B4A9204 /* BrewSync.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BrewSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		95C7CDB1AF378DEF5208CA03 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		9A1DE9B65B6BA31521DBB085 /* BeerListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerListViewModel.swift; sourceTree = "<group>"; };
 		9B56E2E51C5644CB4E0F11C7 /* ReplicatorManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplicatorManager.swift; sourceTree = "<group>"; };
@@ -50,6 +51,7 @@
 		B089C3CB0C08C06C80B12D63 /* BeerCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerCardView.swift; sourceTree = "<group>"; };
 		CB5D68B7ECB1158C7BAA9F34 /* DatabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseManager.swift; sourceTree = "<group>"; };
 		DEA40732AF753B939D3ED879 /* Beer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Beer.swift; sourceTree = "<group>"; };
+		ED10D1E0A4B8482DF8889137 /* OIDCWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OIDCWebView.swift; sourceTree = "<group>"; };
 		F20F759664AFC9E85D2C8B10 /* Brewery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Brewery.swift; sourceTree = "<group>"; };
 		F2E7CA0F95576B4B854125EB /* BeerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerListView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -97,6 +99,7 @@
 			children = (
 				3EF59C608FDC4F680560726E /* AuthManager.swift */,
 				4AFE68393A0BC5A898E29A8E /* KeychainHelper.swift */,
+				ED10D1E0A4B8482DF8889137 /* OIDCWebView.swift */,
 				0F422078FCC4888355401EF3 /* PKCE.swift */,
 			);
 			path = Auth;
@@ -283,6 +286,7 @@
 				58EE7DECDE633F5130A4BFC9 /* DatabaseManager.swift in Sources */,
 				1CA990F7EEAF1556DA7D65C6 /* KeychainHelper.swift in Sources */,
 				68839152AC88A7ECE96686D5 /* LoginView.swift in Sources */,
+				460822947E3F10E8909F2E48 /* OIDCWebView.swift in Sources */,
 				0E9BA1A72CB48D4901F9B3A1 /* PKCE.swift in Sources */,
 				15018CB945DBAD98D0F7F9C1 /* Rating.swift in Sources */,
 				8EEC84FE7F70174DF1514F4E /* RatingStarsView.swift in Sources */,
@@ -301,7 +305,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = U8L62AM7NK;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BrewSync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BrewSync;
@@ -328,7 +331,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = U8L62AM7NK;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BrewSync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BrewSync;

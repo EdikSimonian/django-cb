@@ -3,6 +3,7 @@ import SwiftUI
 struct LoginView: View {
     @ObservedObject var auth = AuthManager.shared
     @State private var showRegister = false
+    @State private var showLogin = false
 
     var body: some View {
         ZStack {
@@ -29,23 +30,16 @@ struct LoginView: View {
 
                 // Login button
                 Button {
-                    Task { await auth.login() }
+                    showLogin = true
                 } label: {
-                    HStack {
-                        if auth.isLoading {
-                            ProgressView()
-                                .tint(.black)
-                        }
-                        Text("Sign In")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Theme.accent)
-                    .foregroundColor(.black)
-                    .cornerRadius(12)
+                    Text("Sign In")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Theme.accent)
+                        .foregroundColor(.black)
+                        .cornerRadius(12)
                 }
-                .disabled(auth.isLoading)
 
                 // Register link
                 Button("Create an Account") {
@@ -59,6 +53,7 @@ struct LoginView: View {
                         .font(.caption)
                         .foregroundColor(Theme.danger)
                         .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
 
                 Spacer()
@@ -68,6 +63,64 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showRegister) {
             RegisterView()
+        }
+        .fullScreenCover(isPresented: $showLogin) {
+            OIDCLoginSheet()
+        }
+    }
+}
+
+/// Full-screen sheet with WKWebView for OIDC login flow
+struct OIDCLoginSheet: View {
+    @ObservedObject var auth = AuthManager.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var error: String?
+
+    private let oidcURL = URL(string: "https://lcqfknrvnr1vpm5x.apps.cloud.couchbase.com:4984/brewsync/_oidc?offline=true")!
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.bg.ignoresSafeArea()
+
+                if let error = error {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 40))
+                            .foregroundColor(Theme.danger)
+                        Text(error)
+                            .font(.subheadline)
+                            .foregroundColor(Theme.textMuted)
+                            .multilineTextAlignment(.center)
+                        Button("Try Again") {
+                            self.error = nil
+                        }
+                        .foregroundColor(Theme.accent)
+                    }
+                    .padding()
+                } else {
+                    OIDCWebView(
+                        url: oidcURL,
+                        onSession: { sessionID, username in
+                            print("[Login] Got session for user: \(username)")
+                            auth.handleSession(sessionID: sessionID, username: username)
+                            dismiss()
+                        },
+                        onError: { errorMsg in
+                            print("[Login] Error: \(errorMsg)")
+                            error = errorMsg
+                        }
+                    )
+                }
+            }
+            .navigationTitle("Sign In")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(Theme.accent)
+                }
+            }
         }
     }
 }
@@ -144,8 +197,6 @@ struct RegisterView: View {
         do {
             try await auth.register(username: username, email: email, password: password)
             dismiss()
-            // Auto-login after registration
-            await auth.login()
         } catch {
             self.error = error.localizedDescription
         }
