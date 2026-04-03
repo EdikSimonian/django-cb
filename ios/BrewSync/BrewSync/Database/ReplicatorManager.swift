@@ -5,8 +5,7 @@ import CouchbaseLiteSwift
 class ReplicatorManager: ObservableObject {
     static let shared = ReplicatorManager()
 
-    // TODO: Replace with your actual App Services endpoint URL
-    private let appServicesURL = "wss://YOUR_APP_SERVICES_ENDPOINT:4984/brewsync"
+    private let appServicesURL = "wss://lcqfknrvnr1vpm5x.apps.cloud.couchbase.com:4984/brewsync"
 
     private var replicator: Replicator?
     private var listenerToken: ListenerToken?
