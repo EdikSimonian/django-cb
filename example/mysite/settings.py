@@ -19,6 +19,8 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
+] + [
+    "https://lcqfknrvnr1vpm5x.apps.cloud.couchbase.com:4984",
 ]
 
 # --- Couchbase Database Backend ---
