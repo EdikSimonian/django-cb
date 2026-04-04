@@ -11,6 +11,7 @@ class BeerListViewModel: ObservableObject {
 
     private var liveQuery: Query?
     private var queryToken: ListenerToken?
+    private var refreshTimer: Timer?
 
     // Cache brewery names by ID
     private var breweryNames: [Int: String] = [:]
@@ -99,6 +100,18 @@ class BeerListViewModel: ObservableObject {
         }
 
         liveQuery = query
+
+        // Poll every 3 seconds to catch new docs from sync
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                self.beers = DatabaseManager.shared.getAllBeers().map { beer in
+                    var b = beer
+                    b.breweryName = beer.breweryId.flatMap { self.breweryNames[$0] }
+                    return b
+                }
+            }
+        }
     }
 
     func stopObserving() {
@@ -106,5 +119,7 @@ class BeerListViewModel: ObservableObject {
             token.remove()
             queryToken = nil
         }
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 }

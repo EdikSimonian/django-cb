@@ -6,6 +6,7 @@ class BreweryListViewModel: ObservableObject {
     @Published var breweries: [Brewery] = []
     @Published var searchText: String = ""
     private var queryToken: ListenerToken?
+    private var refreshTimer: Timer?
 
     var filteredBreweries: [Brewery] {
         if searchText.isEmpty { return breweries }
@@ -38,11 +39,18 @@ class BreweryListViewModel: ObservableObject {
             }
             DispatchQueue.main.async { self?.breweries = list }
         }
+
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            let list = DatabaseManager.shared.getAllBreweries()
+            DispatchQueue.main.async { self?.breweries = list }
+        }
     }
 
     func stopObserving() {
         queryToken?.remove()
         queryToken = nil
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 }
 

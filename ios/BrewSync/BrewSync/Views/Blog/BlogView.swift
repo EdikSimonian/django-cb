@@ -5,19 +5,18 @@ import CouchbaseLiteSwift
 class BlogViewModel: ObservableObject {
     @Published var posts: [BlogPost] = []
     private var queryToken: ListenerToken?
+    private var refreshTimer: Timer?
 
     func refresh() {
         posts = DatabaseManager.shared.getAllBlogPosts()
     }
 
     func startObserving() {
-        // Load immediately
         refresh()
 
         guard queryToken == nil,
               let collection = DatabaseManager.shared.blogPageCollection else { return }
 
-        // Also select title so the query detects when title field is added/changed
         let query = QueryBuilder
             .select(
                 SelectResult.expression(Meta.id),
@@ -32,11 +31,18 @@ class BlogViewModel: ObservableObject {
             let posts = DatabaseManager.shared.getAllBlogPosts()
             DispatchQueue.main.async { self?.posts = posts }
         }
+
+        // Poll every 3 seconds to catch new docs from sync
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.refresh() }
+        }
     }
 
     func stopObserving() {
         queryToken?.remove()
         queryToken = nil
+        refreshTimer?.invalidate()
+        refreshTimer = nil
     }
 }
 
