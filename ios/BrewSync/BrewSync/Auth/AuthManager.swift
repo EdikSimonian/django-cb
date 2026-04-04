@@ -23,13 +23,95 @@ class AuthManager: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        if KeychainHelper.load(key: "sync_session") != nil,
-           let name = KeychainHelper.load(key: "username"), !name.isEmpty {
+        if let name = KeychainHelper.load(key: "username"), !name.isEmpty,
+           KeychainHelper.load(key: "id_token") != nil {
             self.isAuthenticated = true
             self.username = name
             self.userId = Int(KeychainHelper.load(key: "user_id") ?? "0") ?? 0
             self.isAdmin = KeychainHelper.load(key: "groups")?.contains("admin") ?? false
         }
+    }
+
+    // MARK: - Refresh session on app launch
+
+    /// Get a fresh App Services session using the stored ID token.
+    /// Call this on every app launch before starting the replicator.
+    func refreshSession() async -> String? {
+        guard let idToken = KeychainHelper.load(key: "id_token") else {
+            print("[Auth] No stored ID token, need full login")
+            return nil
+        }
+
+        // Check if ID token is expired
+        if isTokenExpired(idToken) {
+            print("[Auth] ID token expired, need full login")
+            // Try refresh token first
+            if let newIdToken = await refreshDjangoToken() {
+                print("[Auth] Refreshed Django tokens")
+                parseIdToken(newIdToken)
+                KeychainHelper.save(key: "id_token", value: newIdToken)
+                return await getNewSession(idToken: newIdToken)
+            }
+            return nil
+        }
+
+        return await getNewSession(idToken: idToken)
+    }
+
+    private func getNewSession(idToken: String) async -> String? {
+        do {
+            let session = try await getAppServicesSession(idToken: idToken)
+            KeychainHelper.save(key: "sync_session", value: session)
+            print("[Auth] Got fresh session: \(session.prefix(20))...")
+            return session
+        } catch {
+            print("[Auth] Failed to refresh session: \(error)")
+            return nil
+        }
+    }
+
+    private func isTokenExpired(_ token: String) -> Bool {
+        let parts = token.split(separator: ".")
+        guard parts.count >= 2 else { return true }
+        var payload = String(parts[1])
+        while payload.count % 4 != 0 { payload += "=" }
+        let base64 = payload
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        guard let data = Data(base64Encoded: base64),
+              let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let exp = claims["exp"] as? TimeInterval else { return true }
+        return Date().timeIntervalSince1970 >= exp
+    }
+
+    // MARK: - Refresh Django token
+
+    private func refreshDjangoToken() async -> String? {
+        guard let refreshToken = KeychainHelper.load(key: "refresh_token") else { return nil }
+
+        let url = URL(string: "\(djangoURL)/o/token/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+
+        let body = "grant_type=refresh_token&refresh_token=\(refreshToken)&client_id=\(clientId)"
+        request.httpBody = body.data(using: .utf8)
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            print("[Auth] Django token refresh failed")
+            return nil
+        }
+
+        if let tokenResponse = try? JSONDecoder().decode(FullTokenResponse.self, from: data) {
+            KeychainHelper.save(key: "access_token", value: tokenResponse.accessToken)
+            if let refresh = tokenResponse.refreshToken {
+                KeychainHelper.save(key: "refresh_token", value: refresh)
+            }
+            return tokenResponse.idToken
+        }
+        return nil
     }
 
     // MARK: - Login
@@ -81,15 +163,18 @@ class AuthManager: NSObject, ObservableObject {
                 throw AuthError.noCode
             }
 
-            // Exchange code for tokens with Django
             let tokens = try await exchangeCode(code: code)
             print("[Auth] Got tokens from Django")
 
-            // Parse ID token for user info
-            parseIdToken(tokens.idToken)
+            // Store all tokens
             KeychainHelper.save(key: "id_token", value: tokens.idToken)
+            KeychainHelper.save(key: "access_token", value: tokens.accessToken)
+            if let refresh = tokens.refreshToken {
+                KeychainHelper.save(key: "refresh_token", value: refresh)
+            }
 
-            // Try to get App Services session using the ID token
+            parseIdToken(tokens.idToken)
+
             let sessionID = try await getAppServicesSession(idToken: tokens.idToken)
             print("[Auth] Got App Services session: \(sessionID.prefix(20))...")
 
@@ -108,7 +193,7 @@ class AuthManager: NSObject, ObservableObject {
 
     // MARK: - Exchange code for tokens (Django)
 
-    private func exchangeCode(code: String) async throws -> TokenResponse {
+    private func exchangeCode(code: String) async throws -> FullTokenResponse {
         let url = URL(string: "\(djangoURL)/o/token/")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -124,56 +209,13 @@ class AuthManager: NSObject, ObservableObject {
             throw AuthError.tokenExchangeFailed
         }
 
-        return try JSONDecoder().decode(TokenResponse.self, from: data)
+        return try JSONDecoder().decode(FullTokenResponse.self, from: data)
     }
 
     // MARK: - Get App Services session
 
     private func getAppServicesSession(idToken: String) async throws -> String {
-        // Try multiple methods to get a session
-
-        // Method 1: _oidc_callback with id_token (implicit flow style)
-        if let session = try? await tryOIDCCallbackWithToken(idToken: idToken) {
-            return session
-        }
-
-        // Method 2: _session with Bearer auth
-        if let session = try? await trySessionWithBearer(idToken: idToken) {
-            return session
-        }
-
-        // Method 3: _oidc_challenge with token
-        if let session = try? await tryOIDCChallenge(idToken: idToken) {
-            return session
-        }
-
-        // Method 4: Use the ID token directly as session (some App Services configs accept this)
-        print("[Auth] All session methods failed, using ID token as session")
-        return idToken
-    }
-
-    private func tryOIDCCallbackWithToken(idToken: String) async throws -> String {
-        // Try implicit flow: pass id_token directly to _oidc_callback
-        let urlString = "\(appServicesURL)/_oidc_callback?id_token=\(idToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&offline=true"
-        guard let url = URL(string: urlString) else { throw AuthError.networkError }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        let body = String(data: data, encoding: .utf8) ?? ""
-        print("[Auth] _oidc_callback?id_token: status=\(status) body=\(body.prefix(200))")
-
-        guard status == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let sessionID = json["session_id"] as? String else {
-            throw AuthError.serverError("_oidc_callback failed (\(status))")
-        }
-        return sessionID
-    }
-
-    private func trySessionWithBearer(idToken: String) async throws -> String {
+        // Method that works: _session with Bearer auth
         let url = URL(string: "\(appServicesURL)/_session")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -184,69 +226,35 @@ class AuthManager: NSObject, ObservableObject {
         let (data, response) = try await URLSession.shared.data(for: request)
         let httpResponse = response as? HTTPURLResponse
         let status = httpResponse?.statusCode ?? 0
-        let body = String(data: data, encoding: .utf8) ?? ""
-        print("[Auth] _session Bearer: status=\(status) body=\(body.prefix(200))")
-
-        // Log all response headers for debugging
-        if let headers = httpResponse?.allHeaderFields {
-            print("[Auth] _session headers: \(headers)")
-        }
 
         guard status == 200 else {
             throw AuthError.serverError("_session failed (\(status))")
         }
 
-        // Try to get session from Set-Cookie header
-        if let setCookie = httpResponse?.value(forHTTPHeaderField: "Set-Cookie") {
-            print("[Auth] Set-Cookie: \(setCookie.prefix(80))...")
-            if let range = setCookie.range(of: "SyncGatewaySession=") {
-                let afterPrefix = setCookie[range.upperBound...]
-                let sessionValue = String(afterPrefix.prefix(while: { $0 != ";" }))
-                if !sessionValue.isEmpty {
-                    print("[Auth] Extracted session from cookie: \(sessionValue.prefix(20))...")
-                    return sessionValue
-                }
+        // Extract from Set-Cookie header
+        if let setCookie = httpResponse?.value(forHTTPHeaderField: "Set-Cookie"),
+           let range = setCookie.range(of: "SyncGatewaySession=") {
+            let afterPrefix = setCookie[range.upperBound...]
+            let sessionValue = String(afterPrefix.prefix(while: { $0 != ";" }))
+            if !sessionValue.isEmpty {
+                return sessionValue
             }
         }
 
         // Try cookies stored by URLSession
         if let cookies = HTTPCookieStorage.shared.cookies(for: url) {
-            for cookie in cookies {
-                print("[Auth] Cookie: \(cookie.name) = \(cookie.value.prefix(20))...")
-                if cookie.name == "SyncGatewaySession" {
-                    return cookie.value
-                }
+            for cookie in cookies where cookie.name == "SyncGatewaySession" {
+                return cookie.value
             }
         }
 
-        // Try session_id from JSON body as fallback
+        // Try JSON body
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let sessionID = json["session_id"] as? String {
             return sessionID
         }
 
-        throw AuthError.serverError("_session returned 200 but no session cookie found")
-    }
-
-    private func tryOIDCChallenge(idToken: String) async throws -> String {
-        let url = URL(string: "\(appServicesURL)/_oidc_challenge?offline=true")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-        request.httpBody = "{}".data(using: .utf8)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        let body = String(data: data, encoding: .utf8) ?? ""
-        print("[Auth] _oidc_challenge: status=\(status) body=\(body.prefix(200))")
-
-        guard status == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let sessionID = json["session_id"] as? String else {
-            throw AuthError.serverError("_oidc_challenge failed (\(status))")
-        }
-        return sessionID
+        throw AuthError.serverError("No session cookie in response")
     }
 
     // MARK: - Parse ID token
@@ -276,16 +284,6 @@ class AuthManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Handle session (from OIDCWebView fallback)
-
-    func handleSession(sessionID: String, username: String) {
-        KeychainHelper.save(key: "sync_session", value: sessionID)
-        KeychainHelper.save(key: "username", value: username)
-        self.username = username
-        self.isAuthenticated = true
-        self.error = nil
-    }
-
     // MARK: - Registration
 
     func register(username: String, email: String, password: String) async throws {
@@ -310,7 +308,6 @@ class AuthManager: NSObject, ObservableObject {
 
     func logout() {
         KeychainHelper.clearAll()
-        KeychainHelper.delete(key: "sync_session")
         isAuthenticated = false
         username = ""
         userId = 0
@@ -328,13 +325,15 @@ extension AuthManager: ASWebAuthenticationPresentationContextProviding {
 
 // MARK: - Models
 
-private struct TokenResponse: Codable {
+private struct FullTokenResponse: Codable {
     let accessToken: String
     let idToken: String
+    let refreshToken: String?
 
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case idToken = "id_token"
+        case refreshToken = "refresh_token"
     }
 }
 

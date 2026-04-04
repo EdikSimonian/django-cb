@@ -45,30 +45,40 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
-            // Enable verbose Couchbase Lite logging
             Database.log.console.domains = .all
-            Database.log.console.level = .verbose
-            print("[App] CouchbaseLite verbose logging enabled")
+            Database.log.console.level = .warning
+        }
+        .task {
+            // On launch, if we have stored credentials, refresh session and start sync
+            if auth.isAuthenticated {
+                await startSync()
+            }
         }
         .onChange(of: auth.isAuthenticated) { authenticated in
             if authenticated {
-                print("[App] Authenticated as \(auth.username), admin=\(auth.isAdmin)")
-                print("[App] Session: \(KeychainHelper.load(key: "sync_session")?.prefix(30) ?? "none")...")
-                do {
-                    try DatabaseManager.shared.initialize()
-                    print("[App] Database initialized")
-                    print("[App] Beer collection: \(DatabaseManager.shared.beerCollection?.name ?? "nil")")
-                    print("[App] Brewery collection: \(DatabaseManager.shared.breweryCollection?.name ?? "nil")")
-                    print("[App] Rating collection: \(DatabaseManager.shared.ratingCollection?.name ?? "nil")")
-                    ReplicatorManager.shared.start()
-                } catch {
-                    print("[App] Database init FAILED: \(error)")
-                }
+                Task { await startSync() }
             } else {
-                print("[App] Logged out")
                 ReplicatorManager.shared.stop()
                 DatabaseManager.shared.close()
             }
+        }
+    }
+
+    private func startSync() async {
+        do {
+            try DatabaseManager.shared.initialize()
+        } catch {
+            print("[App] Database init failed: \(error)")
+            return
+        }
+
+        // Get a fresh session (stored one may be expired)
+        if let session = await AuthManager.shared.refreshSession() {
+            ReplicatorManager.shared.start(sessionID: session)
+        } else {
+            // ID token expired and refresh failed — need full re-login
+            print("[App] Session refresh failed, logging out")
+            AuthManager.shared.logout()
         }
     }
 }
