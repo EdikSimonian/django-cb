@@ -76,7 +76,9 @@ class ReplicatorManager: ObservableObject {
                 case .idle:
                     self?.status = .connected
                     self?.isConnected = true
-                    print("[Replicator] Idle — synced \(change.status.progress.completed) docs")
+                    let beers = DatabaseManager.shared.getAllBeers().count
+                    let breweries = DatabaseManager.shared.getAllBreweries().count
+                    print("[Replicator] Idle — synced \(change.status.progress.completed) docs | Local: \(beers) beers, \(breweries) breweries")
                 case .busy:
                     self?.status = .connected
                     self?.isConnected = true

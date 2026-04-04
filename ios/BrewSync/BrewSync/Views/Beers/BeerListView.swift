@@ -35,6 +35,15 @@ struct BeerListView: View {
                                 Label("Admin", systemImage: "shield.checkered")
                             }
                             Divider()
+                            Button("Reset Sync Data") {
+                                DatabaseManager.shared.deleteAndReset()
+                                try? DatabaseManager.shared.initialize()
+                                Task { await ReplicatorManager.shared.stop()
+                                    if let s = await auth.refreshSession() {
+                                        ReplicatorManager.shared.start(sessionID: s)
+                                    }
+                                }
+                            }
                             Button("Sign Out", role: .destructive) {
                                 auth.logout()
                             }

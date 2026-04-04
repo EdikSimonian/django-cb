@@ -253,4 +253,10 @@ class DatabaseManager {
         breweryCollection = nil
         ratingCollection = nil
     }
+
+    func deleteAndReset() {
+        close()
+        try? Database.delete(withName: dbName)
+        print("[DB] Database deleted for full re-sync")
+    }
 }
