@@ -136,99 +136,70 @@ class DeleteAccountView(APIView):
 
 # --- Template views ---
 
-_cache = {"styles": None, "count": {}, "ts": 0}
+_cache = {"styles": None, "counts": {}, "ts": 0}
+
+def _refresh_style_cache():
+    """Cache top styles and counts using ORM aggregation."""
+    from django.db.models import Count
+    style_counts = (
+        Beer.objects.exclude(style="")
+        .values("style")
+        .annotate(cnt=Count("id"))
+        .order_by("-cnt")
+    )
+    counts = {"": sum(sc["cnt"] for sc in style_counts)}
+    for sc in style_counts:
+        counts[sc["style"]] = sc["cnt"]
+    _cache["styles"] = [sc["style"] for sc in style_counts[:10]]
+    _cache["counts"] = counts
+    _cache["ts"] = time.time()
+
 
 def beer_list_view(request):
-    from django.db import connection
+    from django.core.paginator import Paginator
 
-    now = time.time()
-    cursor = connection.cursor()
+    # Cache styles and counts for 5 minutes
+    if _cache["styles"] is None or time.time() - _cache["ts"] > 300:
+        _refresh_style_cache()
 
-    # Cache top 10 styles for 5 minutes
-    if _cache["styles"] is None or now - _cache["ts"] > 300:
-        cursor.execute(
-            'SELECT style, COUNT(*) AS cnt '
-            'FROM `beer-sample`.`_default`.`beers_beer` '
-            'WHERE doc_type = "beer" AND style IS VALUED AND style != "" '
-            'GROUP BY style ORDER BY cnt DESC LIMIT 10'
-        )
-        _cache["styles"] = [row[0] for row in cursor.fetchall()]
-        # Cache total count per style + overall
-        cursor.execute(
-            'SELECT style, COUNT(*) AS cnt '
-            'FROM `beer-sample`.`_default`.`beers_beer` '
-            'WHERE doc_type = "beer" GROUP BY style'
-        )
-        counts = {}
-        total = 0
-        for row in cursor.fetchall():
-            counts[row[0] or ""] = row[1]
-            total += row[1]
-        counts[""] = total
-        _cache["count"] = counts
-        _cache["ts"] = now
-
-    top_styles = _cache["styles"]
     style = request.GET.get("style", "")
     search = request.GET.get("q", "")
-    page_num = int(request.GET.get("page", 1))
-    per_page = 48
-    offset = (page_num - 1) * per_page
 
-    # Build raw N1QL — single query, no JOIN, no COUNT
-    where = ['b.doc_type = "beer"']
-    params = []
+    # Pure ORM queries
+    qs = Beer.objects.order_by("name")
     if style:
-        where.append("b.style = %s")
-        params.append(style)
+        qs = qs.filter(style=style)
     if search:
-        where.append("LOWER(b.name) LIKE %s")
-        params.append(f"%{search.lower()}%")
+        qs = qs.filter(name__icontains=search)
 
-    where_clause = " AND ".join(where)
-    cursor.execute(
-        f'SELECT b.*, META(b).id AS _id '
-        f'FROM `beer-sample`.`_default`.`beers_beer` b '
-        f'WHERE {where_clause} '
-        f'ORDER BY b.name LIMIT {per_page} OFFSET {offset}',
-        params,
-    )
-    columns = [desc[0] for desc in cursor.description]
-    beers = [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-    # Build brewery name cache for this page
-    brewery_ids = set(b.get("brewery_id") for b in beers if b.get("brewery_id"))
-    brewery_names = {}
-    if brewery_ids:
-        placeholders = ",".join(["%s"] * len(brewery_ids))
-        cursor.execute(
-            f'SELECT id, name FROM `beer-sample`.`_default`.`beers_brewery` '
-            f'WHERE id IN [{placeholders}]',
-            list(brewery_ids),
-        )
-        brewery_names = {row[0]: row[1] for row in cursor.fetchall()}
-
-    for b in beers:
-        b["brewery_name"] = brewery_names.get(b.get("brewery_id"), "")
-
-    # Use cached count (or estimate for search)
-    if search:
-        # For search, we need an actual count
-        cursor.execute(
-            f'SELECT COUNT(*) FROM `beer-sample`.`_default`.`beers_beer` b '
-            f'WHERE {where_clause}',
-            params,
-        )
-        total_count = cursor.fetchone()[0]
+    # Use cached count to avoid COUNT(*) on every page load
+    if not search:
+        total_count = _cache["counts"].get(style, _cache["counts"].get("", 0))
     else:
-        total_count = _cache["count"].get(style, _cache["count"].get("", 0))
+        total_count = qs.count()
 
+    per_page = 48
+    page_num = max(1, int(request.GET.get("page", 1)))
     num_pages = max(1, (total_count + per_page - 1) // per_page)
     page_num = min(page_num, num_pages)
+    offset = (page_num - 1) * per_page
+
+    # Sliced queryset — avoids Paginator's extra COUNT query
+    beers = list(qs[offset:offset + per_page])
+
+    # Batch-fetch brewery names for this page only
+    brewery_ids = {b.brewery_id for b in beers if b.brewery_id}
+    brewery_names = {}
+    if brewery_ids:
+        brewery_names = dict(
+            Brewery.objects.filter(pk__in=brewery_ids).values_list("pk", "name")
+        )
+    for b in beers:
+        b._brewery_name = brewery_names.get(b.brewery_id, "")
 
     return render(request, "beers/beer_list.html", {
         "beers": beers,
-        "styles": top_styles,
+        "styles": _cache["styles"],
         "active_style": style,
         "search_query": search,
         "page_num": page_num,
