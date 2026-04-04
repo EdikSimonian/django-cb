@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		06B020AF7AC69896C2DF6D18 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF59C608FDC4F680560726E /* AuthManager.swift */; };
 		0E9BA1A72CB48D4901F9B3A1 /* PKCE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F422078FCC4888355401EF3 /* PKCE.swift */; };
+		1009A5557324821EB13C5822 /* BreweryFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80861759824B7D6F1C754448 /* BreweryFormView.swift */; };
 		15018CB945DBAD98D0F7F9C1 /* Rating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0739835DDE25157759464C77 /* Rating.swift */; };
 		1C28B1B09BB9FBB0ED20AE18 /* BeerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19489D057AE29B6D1BB3FC8B /* BeerDetailView.swift */; };
 		1CA990F7EEAF1556DA7D65C6 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFE68393A0BC5A898E29A8E /* KeychainHelper.swift */; };
@@ -41,9 +42,10 @@
 		4D703E1E1B42A7AF69B459F4 /* BrewSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewSyncApp.swift; sourceTree = "<group>"; };
 		50531C7B5317752202671FD1 /* BeerFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerFormView.swift; sourceTree = "<group>"; };
 		7F4582592EC95A43BFD0F1B8 /* BreweryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryListView.swift; sourceTree = "<group>"; };
+		80861759824B7D6F1C754448 /* BreweryFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryFormView.swift; sourceTree = "<group>"; };
 		8667BEF65EF46B90ABB6E525 /* BeerDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerDetailViewModel.swift; sourceTree = "<group>"; };
 		899A78E977A2F2F02117C86C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		9059FB563330BB890B4A9204 /* BrewSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BrewSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9059FB563330BB890B4A9204 /* BrewSync.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BrewSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		95C7CDB1AF378DEF5208CA03 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		9A1DE9B65B6BA31521DBB085 /* BeerListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerListViewModel.swift; sourceTree = "<group>"; };
 		9B56E2E51C5644CB4E0F11C7 /* ReplicatorManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplicatorManager.swift; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 		C45A8C2B6DEC7201E12FBFF6 /* Breweries */ = {
 			isa = PBXGroup;
 			children = (
+				80861759824B7D6F1C754448 /* BreweryFormView.swift */,
 				7F4582592EC95A43BFD0F1B8 /* BreweryListView.swift */,
 			);
 			path = Breweries;
@@ -281,6 +284,7 @@
 				882281BC1DFE94CA89A8F6B6 /* BeerListViewModel.swift in Sources */,
 				CDB81D090149A067780418AD /* BrewSyncApp.swift in Sources */,
 				B72EADB12CFA3E5D11779AAA /* Brewery.swift in Sources */,
+				1009A5557324821EB13C5822 /* BreweryFormView.swift in Sources */,
 				F2DE67E89AE2182236CD2B1E /* BreweryListView.swift in Sources */,
 				4F3FA3B005F1BE4F6C7422C4 /* ContentView.swift in Sources */,
 				58EE7DECDE633F5130A4BFC9 /* DatabaseManager.swift in Sources */,
@@ -305,7 +309,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = U8L62AM7NK;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BrewSync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BrewSync;
@@ -332,7 +335,6 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = U8L62AM7NK;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = BrewSync/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BrewSync;

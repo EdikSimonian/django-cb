@@ -4,18 +4,17 @@ import CouchbaseLiteSwift
 @MainActor
 class BreweryListViewModel: ObservableObject {
     @Published var breweries: [Brewery] = []
+    @Published var searchText: String = ""
     private var queryToken: ListenerToken?
+
+    var filteredBreweries: [Brewery] {
+        if searchText.isEmpty { return breweries }
+        return breweries.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
 
     func startObserving() {
         guard queryToken == nil,
-              let collection = DatabaseManager.shared.breweryCollection else {
-            print("[Breweries] No brewery collection available")
-            // Fallback: try loading directly
-            breweries = DatabaseManager.shared.getAllBreweries()
-            print("[Breweries] Fallback loaded \(breweries.count) breweries")
-            return
-        }
-        print("[Breweries] Starting Live Query on collection: \(collection.name)")
+              let collection = DatabaseManager.shared.breweryCollection else { return }
 
         let query = QueryBuilder
             .select(SelectResult.all(), SelectResult.expression(Meta.id))
@@ -37,7 +36,6 @@ class BreweryListViewModel: ObservableObject {
                     website: dict.string(forKey: "website") ?? ""
                 )
             }
-            print("[Breweries] Live Query returned \(list.count) breweries")
             DispatchQueue.main.async { self?.breweries = list }
         }
     }
@@ -50,60 +48,136 @@ class BreweryListViewModel: ObservableObject {
 
 struct BreweryListView: View {
     @StateObject private var viewModel = BreweryListViewModel()
+    @ObservedObject var auth = AuthManager.shared
+    @State private var showAddBrewery = false
 
     var body: some View {
         NavigationStack {
-        ZStack {
-            Theme.bg.ignoresSafeArea()
+            ZStack {
+                Theme.bg.ignoresSafeArea()
 
-            if viewModel.breweries.isEmpty {
-                VStack(spacing: 12) {
-                    ProgressView()
-                        .tint(Theme.accent)
-                    Text("Syncing breweries...")
-                        .font(.caption)
-                        .foregroundColor(Theme.textMuted)
-                }
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(viewModel.breweries) { brewery in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(brewery.name)
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundColor(.white)
-                                if !brewery.city.isEmpty {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "mappin")
-                                            .font(.caption2)
-                                        Text([brewery.city, brewery.state, brewery.country]
-                                            .filter { !$0.isEmpty }
-                                            .joined(separator: ", "))
-                                    }
-                                    .font(.caption)
-                                    .foregroundColor(Theme.textMuted)
-                                }
-                                if !brewery.description.isEmpty {
-                                    Text(brewery.description)
-                                        .font(.caption)
-                                        .foregroundColor(Theme.textMuted)
-                                        .lineLimit(2)
-                                }
+                VStack(spacing: 0) {
+                    // Header
+                    HStack {
+                        Image(systemName: "building.2.fill")
+                            .font(.title2)
+                            .foregroundColor(Theme.accent)
+                        Text("Breweries")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(Theme.accentLight)
+                        Spacer()
+                        if auth.isAdmin {
+                            Button {
+                                showAddBrewery = true
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title3)
+                                    .foregroundColor(Theme.accent)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                            .background(Theme.card)
-                            .cornerRadius(12)
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.top, 8)
+                    .padding(.vertical, 10)
+
+                    // Search bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(Theme.textMuted)
+                        TextField("Search breweries...", text: $viewModel.searchText)
+                            .foregroundColor(Theme.text)
+                    }
+                    .padding(12)
+                    .background(Theme.card)
+                    .cornerRadius(10)
+                    .padding(.horizontal)
+
+                    // Count
+                    HStack {
+                        Text("\(viewModel.filteredBreweries.count) breweries")
+                            .font(.caption)
+                            .foregroundColor(Theme.textMuted)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+
+                    // Brewery grid
+                    ScrollView {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12),
+                        ], spacing: 12) {
+                            ForEach(viewModel.filteredBreweries) { brewery in
+                                BreweryCardView(brewery: brewery)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 20)
+                    }
                 }
             }
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showAddBrewery) {
+                BreweryFormView(mode: .add)
+            }
+            .onAppear { viewModel.startObserving() }
+            .onDisappear { viewModel.stopObserving() }
         }
-        .navigationTitle("Breweries")
-        .onAppear { viewModel.startObserving() }
-        .onDisappear { viewModel.stopObserving() }
+    }
+}
+
+struct BreweryCardView: View {
+    let brewery: Brewery
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(brewery.name)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .lineLimit(2)
+
+            if !brewery.city.isEmpty || !brewery.state.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin")
+                        .font(.caption2)
+                    Text([brewery.city, brewery.state]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: ", "))
+                        .lineLimit(1)
+                }
+                .font(.caption)
+                .foregroundColor(Theme.accent)
+            }
+
+            if !brewery.country.isEmpty {
+                Text(brewery.country)
+                    .font(.caption)
+                    .foregroundColor(Theme.textMuted)
+            }
+
+            Spacer(minLength: 0)
+
+            if !brewery.description.isEmpty {
+                Text(brewery.description)
+                    .font(.caption)
+                    .foregroundColor(Theme.textMuted)
+                    .lineLimit(2)
+            }
+
+            if !brewery.website.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "globe")
+                        .font(.caption2)
+                    Text("Website")
+                        .font(.caption)
+                }
+                .foregroundColor(Theme.accent.opacity(0.7))
+            }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.card)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.border, lineWidth: 1))
     }
 }

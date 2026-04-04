@@ -101,6 +101,26 @@ class DatabaseManager {
 
     // MARK: - Brewery CRUD
 
+    func saveBrewery(_ brewery: Brewery) throws {
+        guard let collection = breweryCollection else { return }
+        let doc = MutableDocument(id: String(brewery.id))
+        doc.setInt(brewery.id, forKey: "id")
+        doc.setString("brewery", forKey: "doc_type")
+        doc.setString(brewery.name, forKey: "name")
+        doc.setString(brewery.city, forKey: "city")
+        doc.setString(brewery.state, forKey: "state")
+        doc.setString(brewery.country, forKey: "country")
+        doc.setString(brewery.description, forKey: "description")
+        doc.setString(brewery.website, forKey: "website")
+        try collection.save(document: doc)
+    }
+
+    func deleteBrewery(id: Int) throws {
+        guard let collection = breweryCollection,
+              let doc = try? collection.document(id: String(id)) else { return }
+        try collection.delete(document: doc)
+    }
+
     func getAllBreweries() -> [Brewery] {
         guard let collection = breweryCollection else { return [] }
         let query = QueryBuilder
