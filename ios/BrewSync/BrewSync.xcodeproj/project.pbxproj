@@ -24,6 +24,7 @@
 		882281BC1DFE94CA89A8F6B6 /* BeerListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A1DE9B65B6BA31521DBB085 /* BeerListViewModel.swift */; };
 		8EEC84FE7F70174DF1514F4E /* RatingStarsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F7FB9738584CEE7B0D3606 /* RatingStarsView.swift */; };
 		AD31AADFCD690486C4CFBD0E /* Beer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA40732AF753B939D3ED879 /* Beer.swift */; };
+		AEEF00D7313ACCBFF926692E /* BlogPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55393B57109B0D07731A676F /* BlogPost.swift */; };
 		B587AC9EF159329EE51751ED /* CouchbaseLiteSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B6A531EFA5D4F6BD1ADC0E5C /* CouchbaseLiteSwift */; };
 		B72EADB12CFA3E5D11779AAA /* Brewery.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20F759664AFC9E85D2C8B10 /* Brewery.swift */; };
 		CDB81D090149A067780418AD /* BrewSyncApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D703E1E1B42A7AF69B459F4 /* BrewSyncApp.swift */; };
@@ -42,6 +43,7 @@
 		4AFE68393A0BC5A898E29A8E /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		4D703E1E1B42A7AF69B459F4 /* BrewSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewSyncApp.swift; sourceTree = "<group>"; };
 		50531C7B5317752202671FD1 /* BeerFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerFormView.swift; sourceTree = "<group>"; };
+		55393B57109B0D07731A676F /* BlogPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlogPost.swift; sourceTree = "<group>"; };
 		7F4582592EC95A43BFD0F1B8 /* BreweryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryListView.swift; sourceTree = "<group>"; };
 		80861759824B7D6F1C754448 /* BreweryFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreweryFormView.swift; sourceTree = "<group>"; };
 		8667BEF65EF46B90ABB6E525 /* BeerDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerDetailViewModel.swift; sourceTree = "<group>"; };
@@ -208,6 +210,7 @@
 			isa = PBXGroup;
 			children = (
 				DEA40732AF753B939D3ED879 /* Beer.swift */,
+				55393B57109B0D07731A676F /* BlogPost.swift */,
 				F20F759664AFC9E85D2C8B10 /* Brewery.swift */,
 				0739835DDE25157759464C77 /* Rating.swift */,
 			);
@@ -293,6 +296,7 @@
 				3B03E0BF8445422FED6A2E80 /* BeerFormView.swift in Sources */,
 				FEC2F6669211A0F0FA8C65AC /* BeerListView.swift in Sources */,
 				882281BC1DFE94CA89A8F6B6 /* BeerListViewModel.swift in Sources */,
+				AEEF00D7313ACCBFF926692E /* BlogPost.swift in Sources */,
 				DBE63132F7DD8DF2D8378A26 /* BlogView.swift in Sources */,
 				CDB81D090149A067780418AD /* BrewSyncApp.swift in Sources */,
 				B72EADB12CFA3E5D11779AAA /* Brewery.swift in Sources */,

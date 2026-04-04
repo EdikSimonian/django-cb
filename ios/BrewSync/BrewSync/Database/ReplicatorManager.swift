@@ -55,6 +55,8 @@ class ReplicatorManager: ObservableObject {
         if let c = DatabaseManager.shared.beerCollection { collections.append(c) }
         if let c = DatabaseManager.shared.breweryCollection { collections.append(c) }
         if let c = DatabaseManager.shared.ratingCollection { collections.append(c) }
+        if let c = DatabaseManager.shared.blogPageCollection { collections.append(c) }
+        if let c = DatabaseManager.shared.wagtailPageCollection { collections.append(c) }
 
         var config = ReplicatorConfiguration(target: endpoint)
         config.replicatorType = .pushAndPull

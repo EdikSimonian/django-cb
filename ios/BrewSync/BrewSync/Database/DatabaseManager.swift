@@ -9,6 +9,8 @@ class DatabaseManager {
     private(set) var beerCollection: Collection?
     private(set) var breweryCollection: Collection?
     private(set) var ratingCollection: Collection?
+    private(set) var blogPageCollection: Collection?
+    private(set) var wagtailPageCollection: Collection?
 
     private let dbName = "brewsync"
 
@@ -25,6 +27,8 @@ class DatabaseManager {
         beerCollection = try db.createCollection(name: "beers_beer", scope: "_default")
         breweryCollection = try db.createCollection(name: "beers_brewery", scope: "_default")
         ratingCollection = try db.createCollection(name: "beers_rating", scope: "_default")
+        blogPageCollection = try db.createCollection(name: "home_blogpage", scope: "_default")
+        wagtailPageCollection = try db.createCollection(name: "wagtailcore_page", scope: "_default")
 
         // Create indexes for common queries
         try createIndexes()
@@ -266,12 +270,54 @@ class DatabaseManager {
 
     // MARK: - Cleanup
 
+    // MARK: - Blog
+
+    func getAllBlogPosts() -> [BlogPost] {
+        guard let blogCol = blogPageCollection,
+              let pageCol = wagtailPageCollection else { return [] }
+
+        // Get blog page data
+        let query = QueryBuilder
+            .select(SelectResult.all(), SelectResult.expression(Meta.id))
+            .from(DataSource.collection(blogCol))
+
+        guard let results = try? query.execute() else { return [] }
+
+        var posts: [BlogPost] = []
+        for result in results {
+            guard let dict = result.dictionary(at: 0) else { continue }
+            let pageId = dict.int(forKey: "page_ptr_id")
+            guard pageId > 0 else { continue }
+
+            // Look up title from wagtailcore_page
+            var title = ""
+            var slug = ""
+            if let pageDoc = try? pageCol.document(id: String(pageId)) {
+                title = pageDoc.string(forKey: "title") ?? ""
+                slug = pageDoc.string(forKey: "slug") ?? ""
+            }
+
+            posts.append(BlogPost(
+                id: pageId,
+                title: title,
+                slug: slug,
+                date: dict.string(forKey: "date") ?? "",
+                intro: dict.string(forKey: "intro") ?? "",
+                body: dict.string(forKey: "body") ?? ""
+            ))
+        }
+
+        return posts.sorted { $0.date > $1.date }
+    }
+
     func close() {
         try? database?.close()
         database = nil
         beerCollection = nil
         breweryCollection = nil
         ratingCollection = nil
+        blogPageCollection = nil
+        wagtailPageCollection = nil
     }
 
     func deleteAndReset() {
