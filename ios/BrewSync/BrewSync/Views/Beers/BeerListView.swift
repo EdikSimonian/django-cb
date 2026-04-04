@@ -29,29 +29,7 @@ struct BeerListView: View {
                                     .foregroundColor(Theme.accent)
                             }
                         }
-                        Menu {
-                            Text("Signed in as \(auth.username)")
-                            if auth.isAdmin {
-                                Label("Admin", systemImage: "shield.checkered")
-                            }
-                            Divider()
-                            Button("Reset Sync Data") {
-                                DatabaseManager.shared.deleteAndReset()
-                                try? DatabaseManager.shared.initialize()
-                                Task { await ReplicatorManager.shared.stop()
-                                    if let s = await auth.refreshSession() {
-                                        ReplicatorManager.shared.start(sessionID: s)
-                                    }
-                                }
-                            }
-                            Button("Sign Out", role: .destructive) {
-                                auth.logout()
-                            }
-                        } label: {
-                            Image(systemName: "person.circle")
-                                .font(.title3)
-                                .foregroundColor(Theme.textMuted)
-                        }
+                        UserMenuView()
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 10)

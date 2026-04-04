@@ -6,12 +6,26 @@ class BlogViewModel: ObservableObject {
     @Published var posts: [BlogPost] = []
     private var queryToken: ListenerToken?
 
+    func refresh() {
+        posts = DatabaseManager.shared.getAllBlogPosts()
+    }
+
     func startObserving() {
+        // Load immediately
+        refresh()
+
         guard queryToken == nil,
               let collection = DatabaseManager.shared.blogPageCollection else { return }
 
+        // Also select title so the query detects when title field is added/changed
         let query = QueryBuilder
-            .select(SelectResult.all(), SelectResult.expression(Meta.id))
+            .select(
+                SelectResult.expression(Meta.id),
+                SelectResult.property("title"),
+                SelectResult.property("date"),
+                SelectResult.property("intro"),
+                SelectResult.property("page_ptr_id")
+            )
             .from(DataSource.collection(collection))
 
         queryToken = query.addChangeListener { [weak self] _ in
@@ -49,20 +63,7 @@ struct BlogView: View {
                         Text("\(viewModel.posts.count) posts")
                             .font(.caption)
                             .foregroundColor(Theme.textMuted)
-                        Menu {
-                            Text("Signed in as \(auth.username)")
-                            if auth.isAdmin {
-                                Label("Admin", systemImage: "shield.checkered")
-                            }
-                            Divider()
-                            Button("Sign Out", role: .destructive) {
-                                auth.logout()
-                            }
-                        } label: {
-                            Image(systemName: "person.circle")
-                                .font(.title3)
-                                .foregroundColor(Theme.textMuted)
-                        }
+                        UserMenuView()
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 10)
@@ -99,7 +100,10 @@ struct BlogView: View {
             .sheet(item: $selectedPost) { post in
                 BlogDetailView(post: post)
             }
-            .onAppear { viewModel.startObserving() }
+            .onAppear {
+                viewModel.startObserving()
+                viewModel.refresh()
+            }
             .onDisappear { viewModel.stopObserving() }
         }
     }

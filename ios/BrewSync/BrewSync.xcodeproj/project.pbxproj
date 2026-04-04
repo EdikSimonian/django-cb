@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		06B020AF7AC69896C2DF6D18 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF59C608FDC4F680560726E /* AuthManager.swift */; };
 		0E9BA1A72CB48D4901F9B3A1 /* PKCE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F422078FCC4888355401EF3 /* PKCE.swift */; };
+		0EF6F7758C64567AB0BEAB5B /* UserMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34FE827A0F2ED04DD20FA126 /* UserMenuView.swift */; };
 		1009A5557324821EB13C5822 /* BreweryFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80861759824B7D6F1C754448 /* BreweryFormView.swift */; };
 		15018CB945DBAD98D0F7F9C1 /* Rating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0739835DDE25157759464C77 /* Rating.swift */; };
 		1C28B1B09BB9FBB0ED20AE18 /* BeerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19489D057AE29B6D1BB3FC8B /* BeerDetailView.swift */; };
@@ -39,6 +40,7 @@
 		0F422078FCC4888355401EF3 /* PKCE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PKCE.swift; sourceTree = "<group>"; };
 		19489D057AE29B6D1BB3FC8B /* BeerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeerDetailView.swift; sourceTree = "<group>"; };
 		1DF82EE44E0A99773B284BA7 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		34FE827A0F2ED04DD20FA126 /* UserMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserMenuView.swift; sourceTree = "<group>"; };
 		3EF59C608FDC4F680560726E /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		4AFE68393A0BC5A898E29A8E /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		4D703E1E1B42A7AF69B459F4 /* BrewSyncApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrewSyncApp.swift; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 		3C3DB6C9B5C3A61119A6B0BA /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				34FE827A0F2ED04DD20FA126 /* UserMenuView.swift */,
 				4F0C69D8612FF9A19B5EA07A /* Beers */,
 				9267886761AE1DD540125EC3 /* Blog */,
 				C45A8C2B6DEC7201E12FBFF6 /* Breweries */,
@@ -312,6 +315,7 @@
 				8EEC84FE7F70174DF1514F4E /* RatingStarsView.swift in Sources */,
 				D25ED69A006BA5A6039313B3 /* ReplicatorManager.swift in Sources */,
 				40F96FA128DF9E59AA92A1AF /* Theme.swift in Sources */,
+				0EF6F7758C64567AB0BEAB5B /* UserMenuView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

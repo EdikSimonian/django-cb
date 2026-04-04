@@ -76,20 +76,7 @@ struct BreweryListView: View {
                                     .foregroundColor(Theme.accent)
                             }
                         }
-                        Menu {
-                            Text("Signed in as \(auth.username)")
-                            if auth.isAdmin {
-                                Label("Admin", systemImage: "shield.checkered")
-                            }
-                            Divider()
-                            Button("Sign Out", role: .destructive) {
-                                auth.logout()
-                            }
-                        } label: {
-                            Image(systemName: "person.circle")
-                                .font(.title3)
-                                .foregroundColor(Theme.textMuted)
-                        }
+                        UserMenuView()
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 10)
