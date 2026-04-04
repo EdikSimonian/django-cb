@@ -107,5 +107,16 @@ def beer_list_view(request):
 
 def beer_detail_view(request, pk):
     beer = Beer.objects.select_related("brewery").get(pk=pk)
-    ratings = Rating.objects.filter(beer=beer).order_by("-created_at")
+    # Query ratings directly — mobile-created ratings may lack ORM FK fields
+    from django.db import connection
+    cursor = connection.cursor()
+    cursor.execute(
+        'SELECT username, score, created_at FROM `beer-sample`.`_default`.`beers_rating` '
+        'WHERE beer_id = %s AND doc_type = "rating" ORDER BY created_at DESC',
+        [pk],
+    )
+    ratings = [
+        {"username": row[0], "score": row[1], "created_at": row[2]}
+        for row in cursor.fetchall()
+    ]
     return render(request, "beers/beer_detail.html", {"beer": beer, "ratings": ratings})

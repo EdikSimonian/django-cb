@@ -70,7 +70,7 @@
     <div class="rating-item">
         <div>
             <div class="rating-user">{{ rating.username }}</div>
-            <div class="rating-date">{{ rating.created_at|date:"M d, Y" }}</div>
+            <div class="rating-date">{{ rating.created_at }}</div>
         </div>
         <div class="rating-stars-sm">
             {% for i in "12345" %}{% if forloop.counter <= rating.score %}★{% else %}☆{% endif %}{% endfor %}
