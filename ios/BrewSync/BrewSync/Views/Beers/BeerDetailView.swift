@@ -40,7 +40,7 @@ struct BeerDetailView: View {
                     }
 
                     // Meta cards
-                    HStack(spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
                         MetaCard(label: "BREWERY", value: viewModel.brewery?.name ?? "Unknown") {
                             if let brewery = viewModel.brewery, !brewery.city.isEmpty {
                                 Text("\(brewery.city), \(brewery.state)")
@@ -160,7 +160,7 @@ struct MetaCard<Content: View>: View {
             }
             extra
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding()
         .background(Theme.card)
         .cornerRadius(12)

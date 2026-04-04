@@ -9,5 +9,8 @@ if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
     python manage.py createsuperuser --noinput 2>/dev/null || true
 fi
 
+# Start rating recomputation loop in background (every 60 seconds)
+(while true; do python manage.py recompute_ratings 2>/dev/null; sleep 60; done) &
+
 # Start gunicorn
 exec gunicorn mysite.wsgi --bind 0.0.0.0:${PORT:-8000} --workers 2

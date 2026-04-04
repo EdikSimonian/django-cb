@@ -66,14 +66,13 @@ class BeerDetailViewModel: ObservableObject {
             try DatabaseManager.shared.saveRating(rating)
             userRating = score
 
-            // Recompute local avg
+            // Recompute local avg for display only (don't save beer doc —
+            // non-admin users can't write to beers_beer collection)
             let allRatings = DatabaseManager.shared.getRatings(forBeer: beer.id)
             let total = allRatings.reduce(0) { $0 + $1.score }
             let count = allRatings.count
             beer.avgRating = count > 0 ? Double(total) / Double(count) : 0
             beer.ratingCount = count
-            try? DatabaseManager.shared.saveBeer(beer)
-
             ratings = allRatings
         } catch {
             print("[Rating] Save error: \(error)")
