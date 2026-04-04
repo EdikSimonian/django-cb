@@ -106,6 +106,29 @@ class RegisterView(APIView):
         )
 
 
+@method_decorator(csrf_exempt, name="dispatch")
+class DeleteAccountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        username = user.username
+        # Delete user's ratings and recompute affected beers
+        from django.db import connection
+        cursor = connection.cursor()
+        cursor.execute(
+            'DELETE FROM `beer-sample`.`_default`.`beers_rating` '
+            'WHERE username = %s AND doc_type = "rating"',
+            [username],
+        )
+        # Revoke all OAuth tokens
+        AccessToken.objects.filter(user=user).delete()
+        RefreshToken.objects.filter(user=user).delete()
+        # Delete the user
+        user.delete()
+        return Response({"detail": "Account deleted"}, status=status.HTTP_200_OK)
+
+
 # --- Template views ---
 
 def beer_list_view(request):

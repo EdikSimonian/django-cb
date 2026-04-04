@@ -228,6 +228,8 @@ class AuthManager: NSObject, ObservableObject {
         let status = httpResponse?.statusCode ?? 0
 
         guard status == 200 else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            print("[Auth] _session failed (\(status)): \(body)")
             throw AuthError.serverError("_session failed (\(status))")
         }
 
@@ -386,6 +388,27 @@ class AuthManager: NSObject, ObservableObject {
         KeychainHelper.save(key: "sync_session", value: sessionID)
         isAuthenticated = true
         print("[Auth] Social login complete, session: \(sessionID.prefix(20))...")
+    }
+
+    // MARK: - Delete Account
+
+    func deleteAccount() async throws {
+        guard let accessToken = KeychainHelper.load(key: "access_token") else {
+            throw AuthError.serverError("Not authenticated")
+        }
+
+        let url = URL(string: "\(djangoURL)/api/auth/account/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let body = String(data: data, encoding: .utf8) ?? "Delete failed"
+            throw AuthError.serverError(body)
+        }
+
+        logout()
     }
 
     // MARK: - Logout

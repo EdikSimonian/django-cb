@@ -2,14 +2,16 @@ import AuthenticationServices
 import Foundation
 
 /// Handles Google Sign-In using ASWebAuthenticationSession (no Google SDK dependency).
-/// Uses Google's OAuth 2.0 flow to get an ID token, then exchanges it via Django backend.
+/// Uses the iOS OAuth client ID (public client, no secret needed).
 @MainActor
 class GoogleSignInHelper: NSObject, ASWebAuthenticationPresentationContextProviding {
 
-    static let googleClientId = "YOUR_GOOGLE_IOS_CLIENT_ID"  // Replace with actual Google OAuth client ID
+    private static let clientId = "247166506991-9lht6504qb2vva7knscevtp6gb21pe1s.apps.googleusercontent.com"
     private static let googleAuthURL = "https://accounts.google.com/o/oauth2/v2/auth"
     private static let googleTokenURL = "https://oauth2.googleapis.com/token"
-    private static let redirectURI = "com.googleusercontent.apps.YOUR_REVERSED_CLIENT_ID:/oauth2redirect"  // Replace
+    // Redirect URI: reversed client ID as scheme (standard Google convention for iOS)
+    private static let redirectScheme = "com.googleusercontent.apps.247166506991-9lht6504qb2vva7knscevtp6gb21pe1s"
+    private static let redirectURI = "\(redirectScheme):/oauth2redirect"
 
     func signIn() async throws -> String {
         let codeVerifier = PKCE.generateCodeVerifier()
@@ -17,7 +19,7 @@ class GoogleSignInHelper: NSObject, ASWebAuthenticationPresentationContextProvid
 
         var components = URLComponents(string: Self.googleAuthURL)!
         components.queryItems = [
-            URLQueryItem(name: "client_id", value: Self.googleClientId),
+            URLQueryItem(name: "client_id", value: Self.clientId),
             URLQueryItem(name: "redirect_uri", value: Self.redirectURI),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "scope", value: "openid email profile"),
@@ -29,12 +31,10 @@ class GoogleSignInHelper: NSObject, ASWebAuthenticationPresentationContextProvid
             throw AuthError.networkError
         }
 
-        let callbackScheme = Self.redirectURI.components(separatedBy: ":").first ?? ""
-
         let callbackURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let session = ASWebAuthenticationSession(
                 url: authURL,
-                callbackURLScheme: callbackScheme
+                callbackURLScheme: Self.redirectScheme
             ) { url, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -54,7 +54,6 @@ class GoogleSignInHelper: NSObject, ASWebAuthenticationPresentationContextProvid
             throw AuthError.noCode
         }
 
-        // Exchange code for tokens with Google
         let idToken = try await exchangeGoogleCode(code: code, codeVerifier: codeVerifier)
         return idToken
     }
@@ -65,9 +64,10 @@ class GoogleSignInHelper: NSObject, ASWebAuthenticationPresentationContextProvid
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
+        // iOS client is a public client — no client_secret needed
         let body = [
             "code=\(code)",
-            "client_id=\(Self.googleClientId)",
+            "client_id=\(Self.clientId)",
             "redirect_uri=\(Self.redirectURI)",
             "grant_type=authorization_code",
             "code_verifier=\(codeVerifier)",
