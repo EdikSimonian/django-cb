@@ -201,7 +201,7 @@ extension BlogPost: Hashable {
 
 extension String {
     func strippingHTML() -> String {
-        replacingOccurrences(of: "</p>", with: "\n\n")
+        replacingOccurrences(of: "</p>", with: "\n")
             .replacingOccurrences(of: "<br>", with: "\n")
             .replacingOccurrences(of: "<br/>", with: "\n")
             .replacingOccurrences(of: "<br />", with: "\n")
@@ -211,7 +211,7 @@ extension String {
             .replacingOccurrences(of: "&gt;", with: ">")
             .replacingOccurrences(of: "&#x27;", with: "'")
             .replacingOccurrences(of: "&quot;", with: "\"")
-            .replacingOccurrences(of: "\n\n\n", with: "\n\n")
+            .replacingOccurrences(of: "\n\n", with: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
