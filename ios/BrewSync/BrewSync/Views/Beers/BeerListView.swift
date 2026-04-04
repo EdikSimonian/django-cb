@@ -75,7 +75,11 @@ struct BeerListView: View {
                     }
                 }
             }
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    EmptyView()
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 6) {
                         Image(systemName: "mug.fill")
