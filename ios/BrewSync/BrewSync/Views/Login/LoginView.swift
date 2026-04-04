@@ -12,7 +12,7 @@ struct LoginView: View {
                 Spacer()
 
                 VStack(spacing: 12) {
-                    Image(systemName: "mug.fill")
+                    Image(systemName: "drop.fill")
                         .font(.system(size: 64))
                         .foregroundColor(Theme.accent)
                     Text("BrewSync")

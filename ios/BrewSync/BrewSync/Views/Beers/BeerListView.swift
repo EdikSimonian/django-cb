@@ -79,13 +79,9 @@ struct BeerListView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "mug.fill")
-                            .foregroundColor(Theme.accent)
-                        Text("BrewSync")
-                            .fontWeight(.bold)
-                            .foregroundColor(Theme.accentLight)
-                    }
+                    Text("BrewSync")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(Theme.accentLight)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
