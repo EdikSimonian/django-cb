@@ -23,10 +23,10 @@ class BeerDetailViewModel: ObservableObject {
         // Load ratings
         ratings = DatabaseManager.shared.getRatings(forBeer: beer.id)
 
-        // Load user's existing rating
-        if auth.isAuthenticated {
+        // Load current user's rating
+        if auth.isAuthenticated, !auth.username.isEmpty {
             if let existing = DatabaseManager.shared.getUserRating(
-                beerId: beer.id, userId: auth.userId
+                beerId: beer.id, username: auth.username
             ) {
                 userRating = existing.score
             }
@@ -34,12 +34,12 @@ class BeerDetailViewModel: ObservableObject {
     }
 
     func submitRating(score: Int) {
-        guard auth.isAuthenticated else { return }
+        guard auth.isAuthenticated, !auth.username.isEmpty else { return }
 
         let rating = Rating(
-            id: Rating.documentId(beerId: beer.id, userId: auth.userId),
+            id: Rating.documentId(beerId: beer.id, username: auth.username),
             beerId: beer.id,
-            userId: auth.userId,
+            userId: 0,
             username: auth.username,
             score: score
         )

@@ -18,7 +18,7 @@ struct Rating: Identifiable, Codable {
         case createdAt = "created_at"
     }
 
-    static func documentId(beerId: Int, userId: Int) -> String {
-        "rating::\(beerId)::\(userId)"
+    static func documentId(beerId: Int, username: String) -> String {
+        "rating::\(beerId)::\(username)"
     }
 }

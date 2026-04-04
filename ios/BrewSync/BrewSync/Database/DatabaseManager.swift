@@ -161,8 +161,8 @@ class DatabaseManager {
         }
     }
 
-    func getUserRating(beerId: Int, userId: Int) -> Rating? {
-        let docId = Rating.documentId(beerId: beerId, userId: userId)
+    func getUserRating(beerId: Int, username: String) -> Rating? {
+        let docId = Rating.documentId(beerId: beerId, username: username)
         guard let collection = ratingCollection,
               let doc = try? collection.document(id: docId) else { return nil }
         return ratingFromDocument(doc, docId: docId)
