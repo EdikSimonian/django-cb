@@ -2,23 +2,46 @@
 
 {% block title %}Beers — BrewSync{% endblock %}
 
+{% block extra_css %}
+<style>
+    .pagination { display: flex; justify-content: center; gap: 8px; margin: 32px 0; flex-wrap: wrap; }
+    .pagination a, .pagination span {
+        padding: 8px 14px; border-radius: 8px; font-size: 14px; text-decoration: none;
+        background: var(--card); color: var(--text); border: 1px solid var(--border);
+    }
+    .pagination a:hover { background: var(--bg-alt); }
+    .pagination .current { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+    .pagination .disabled { opacity: 0.4; pointer-events: none; }
+    .search-form { display: flex; gap: 10px; margin-bottom: 16px; }
+    .search-form input { flex: 1; }
+    .search-form button {
+        padding: 10px 20px; background: var(--accent); color: #000; border: none;
+        border-radius: 8px; font-weight: 600; cursor: pointer;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1 style="font-size:28px; margin-bottom:20px; color:#fff;">Our Beers</h1>
 
-<input type="text" class="search-box" id="search" placeholder="Search beers..." autocomplete="off">
+<form class="search-form" method="get" action="/beers/">
+    <input type="text" class="search-box" name="q" value="{{ search_query }}" placeholder="Search beers..." autocomplete="off">
+    {% if active_style %}<input type="hidden" name="style" value="{{ active_style }}">{% endif %}
+    <button type="submit">Search</button>
+</form>
 
 <div class="toolbar">
-    <button class="filter-btn active" data-style="">All</button>
+    <a href="/beers/{% if search_query %}?q={{ search_query }}{% endif %}" class="filter-btn {% if not active_style %}active{% endif %}">All</a>
     {% for style in styles %}
-    <button class="filter-btn" data-style="{{ style }}">{{ style }}</button>
+    <a href="/beers/?style={{ style|urlencode }}{% if search_query %}&q={{ search_query }}{% endif %}" class="filter-btn {% if active_style == style %}active{% endif %}">{{ style }}</a>
     {% endfor %}
 </div>
 
-<div class="count" id="count">{{ beers|length }} beers</div>
+<div class="count">{{ page.paginator.count }} beer{{ page.paginator.count|pluralize }}</div>
 
 <div class="grid" id="beer-grid">
-    {% for beer in beers %}
-    <a href="/beers/{{ beer.pk }}/" class="card" data-name="{{ beer.name|lower }}" data-style="{{ beer.style }}">
+    {% for beer in page %}
+    <a href="/beers/{{ beer.pk }}/" class="card">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
             <h3>{{ beer.name }}</h3>
             {% if beer.abv %}<span class="badge badge-accent">{{ beer.abv }}%</span>{% endif %}
@@ -30,7 +53,7 @@
             <div class="stars">
                 {% if beer.avg_rating %}
                 {% with stars=beer.avg_rating|floatformat:0 %}
-                {% for i in "12345" %}{% if forloop.counter <= stars|add:0 %}★{% else %}☆{% endif %}{% endfor %}
+                {% for i in "12345" %}{% if forloop.counter <= stars|add:0 %}���{% else %}☆{% endif %}{% endfor %}
                 {% endwith %}
                 <span class="rating-count">({{ beer.rating_count }})</span>
                 {% else %}☆☆☆☆☆{% endif %}
@@ -40,40 +63,34 @@
     </a>
     {% empty %}
     <div style="text-align:center; padding:60px 20px; color:var(--text-muted); grid-column:1/-1;">
-        No beers yet. Run <code>python manage.py seed_beers</code>
+        No beers found.
     </div>
     {% endfor %}
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-const search = document.getElementById('search');
-const grid = document.getElementById('beer-grid');
-const cards = grid.querySelectorAll('.card');
-const countEl = document.getElementById('count');
-const filterBtns = document.querySelectorAll('.filter-btn');
-let activeStyle = '';
+{% if page.paginator.num_pages > 1 %}
+<div class="pagination">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">← Prev</a>
+    {% else %}
+    <span class="disabled">← Prev</span>
+    {% endif %}
 
-function filterCards() {
-    const q = search.value.toLowerCase();
-    let visible = 0;
-    cards.forEach(card => {
-        const show = (!q || card.dataset.name.includes(q)) && (!activeStyle || card.dataset.style === activeStyle);
-        card.style.display = show ? '' : 'none';
-        if (show) visible++;
-    });
-    countEl.textContent = visible + ' beer' + (visible !== 1 ? 's' : '');
-}
+    {% for num in page.paginator.page_range %}
+        {% if page.number == num %}
+        <span class="current">{{ num }}</span>
+        {% elif num > page.number|add:"-3" and num < page.number|add:"3" or num == 1 or num == page.paginator.num_pages %}
+        <a href="?page={{ num }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{ num }}</a>
+        {% elif num == page.number|add:"-3" or num == page.number|add:"3" %}
+        <span>…</span>
+        {% endif %}
+    {% endfor %}
 
-search.addEventListener('input', filterCards);
-filterBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        filterBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        activeStyle = btn.dataset.style;
-        filterCards();
-    });
-});
-</script>
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">Next →</a>
+    {% else %}
+    <span class="disabled">Next →</span>
+    {% endif %}
+</div>
+{% endif %}
 {% endblock %}
