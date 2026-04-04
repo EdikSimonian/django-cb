@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}Beers — BrewSync{% endblock %}
 
@@ -37,23 +38,23 @@
     {% endfor %}
 </div>
 
-<div class="count">{{ page.paginator.count }} beer{{ page.paginator.count|pluralize }}</div>
+<div class="count">{{ total_count|intcomma }} beer{{ total_count|pluralize }}</div>
 
 <div class="grid" id="beer-grid">
-    {% for beer in page %}
-    <a href="/beers/{{ beer.pk }}/" class="card">
+    {% for beer in beers %}
+    <a href="/beers/{{ beer.id }}/" class="card">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
             <h3>{{ beer.name }}</h3>
             {% if beer.abv %}<span class="badge badge-accent">{{ beer.abv }}%</span>{% endif %}
         </div>
         <div style="font-size:13px; color:var(--accent); margin-bottom:4px;">{{ beer.style }}</div>
-        <div style="font-size:13px; color:var(--text-muted);">{{ beer.brewery.name|default:"—" }}</div>
+        <div style="font-size:13px; color:var(--text-muted);">{{ beer.brewery_name|default:"—" }}</div>
         {% if beer.description %}<div style="font-size:13px; color:var(--text-muted); line-height:1.4; margin-top:8px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">{{ beer.description }}</div>{% endif %}
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
             <div class="stars">
                 {% if beer.avg_rating %}
                 {% with stars=beer.avg_rating|floatformat:0 %}
-                {% for i in "12345" %}{% if forloop.counter <= stars|add:0 %}���{% else %}☆{% endif %}{% endfor %}
+                {% for i in "12345" %}{% if forloop.counter <= stars|add:0 %}★{% else %}☆{% endif %}{% endfor %}
                 {% endwith %}
                 <span class="rating-count">({{ beer.rating_count }})</span>
                 {% else %}☆☆☆☆☆{% endif %}
@@ -68,26 +69,26 @@
     {% endfor %}
 </div>
 
-{% if page.paginator.num_pages > 1 %}
+{% if num_pages > 1 %}
 <div class="pagination">
-    {% if page.has_previous %}
-    <a href="?page={{ page.previous_page_number }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">← Prev</a>
+    {% if has_previous %}
+    <a href="?page={{ previous_page }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">← Prev</a>
     {% else %}
     <span class="disabled">← Prev</span>
     {% endif %}
 
-    {% for num in page.paginator.page_range %}
-        {% if page.number == num %}
+    {% for num in page_range %}
+        {% if page_num == num %}
         <span class="current">{{ num }}</span>
-        {% elif num > page.number|add:"-3" and num < page.number|add:"3" or num == 1 or num == page.paginator.num_pages %}
+        {% elif num > page_num|add:"-3" and num < page_num|add:"3" or num == 1 or num == num_pages %}
         <a href="?page={{ num }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{ num }}</a>
-        {% elif num == page.number|add:"-3" or num == page.number|add:"3" %}
+        {% elif num == page_num|add:"-3" or num == page_num|add:"3" %}
         <span>…</span>
         {% endif %}
     {% endfor %}
 
-    {% if page.has_next %}
-    <a href="?page={{ page.next_page_number }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">Next →</a>
+    {% if has_next %}
+    <a href="?page={{ next_page }}{% if active_style %}&style={{ active_style|urlencode }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">Next →</a>
     {% else %}
     <span class="disabled">Next →</span>
     {% endif %}

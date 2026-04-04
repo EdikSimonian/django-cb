@@ -136,44 +136,109 @@ class DeleteAccountView(APIView):
 
 # --- Template views ---
 
-_top_styles_cache = {"styles": None, "ts": 0}
+_cache = {"styles": None, "count": {}, "ts": 0}
 
 def beer_list_view(request):
-    from django.core.paginator import Paginator
     from django.db import connection
 
-    # Cache top 10 styles for 5 minutes
     now = time.time()
-    if _top_styles_cache["styles"] is None or now - _top_styles_cache["ts"] > 300:
-        cursor = connection.cursor()
+    cursor = connection.cursor()
+
+    # Cache top 10 styles for 5 minutes
+    if _cache["styles"] is None or now - _cache["ts"] > 300:
         cursor.execute(
             'SELECT style, COUNT(*) AS cnt '
             'FROM `beer-sample`.`_default`.`beers_beer` '
             'WHERE doc_type = "beer" AND style IS VALUED AND style != "" '
             'GROUP BY style ORDER BY cnt DESC LIMIT 10'
         )
-        _top_styles_cache["styles"] = [row[0] for row in cursor.fetchall()]
-        _top_styles_cache["ts"] = now
-    top_styles = _top_styles_cache["styles"]
+        _cache["styles"] = [row[0] for row in cursor.fetchall()]
+        # Cache total count per style + overall
+        cursor.execute(
+            'SELECT style, COUNT(*) AS cnt '
+            'FROM `beer-sample`.`_default`.`beers_beer` '
+            'WHERE doc_type = "beer" GROUP BY style'
+        )
+        counts = {}
+        total = 0
+        for row in cursor.fetchall():
+            counts[row[0] or ""] = row[1]
+            total += row[1]
+        counts[""] = total
+        _cache["count"] = counts
+        _cache["ts"] = now
 
-    # Filter and search
-    qs = Beer.objects.select_related("brewery").all()
+    top_styles = _cache["styles"]
     style = request.GET.get("style", "")
-    if style:
-        qs = qs.filter(style=style)
     search = request.GET.get("q", "")
-    if search:
-        qs = qs.filter(name__icontains=search)
+    page_num = int(request.GET.get("page", 1))
+    per_page = 48
+    offset = (page_num - 1) * per_page
 
-    qs = qs.order_by("name")
-    paginator = Paginator(qs, 48)
-    page = paginator.get_page(request.GET.get("page", 1))
+    # Build raw N1QL — single query, no JOIN, no COUNT
+    where = ['b.doc_type = "beer"']
+    params = []
+    if style:
+        where.append("b.style = %s")
+        params.append(style)
+    if search:
+        where.append("LOWER(b.name) LIKE %s")
+        params.append(f"%{search.lower()}%")
+
+    where_clause = " AND ".join(where)
+    cursor.execute(
+        f'SELECT b.*, META(b).id AS _id '
+        f'FROM `beer-sample`.`_default`.`beers_beer` b '
+        f'WHERE {where_clause} '
+        f'ORDER BY b.name LIMIT {per_page} OFFSET {offset}',
+        params,
+    )
+    columns = [desc[0] for desc in cursor.description]
+    beers = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    # Build brewery name cache for this page
+    brewery_ids = set(b.get("brewery_id") for b in beers if b.get("brewery_id"))
+    brewery_names = {}
+    if brewery_ids:
+        placeholders = ",".join(["%s"] * len(brewery_ids))
+        cursor.execute(
+            f'SELECT id, name FROM `beer-sample`.`_default`.`beers_brewery` '
+            f'WHERE id IN [{placeholders}]',
+            list(brewery_ids),
+        )
+        brewery_names = {row[0]: row[1] for row in cursor.fetchall()}
+
+    for b in beers:
+        b["brewery_name"] = brewery_names.get(b.get("brewery_id"), "")
+
+    # Use cached count (or estimate for search)
+    if search:
+        # For search, we need an actual count
+        cursor.execute(
+            f'SELECT COUNT(*) FROM `beer-sample`.`_default`.`beers_beer` b '
+            f'WHERE {where_clause}',
+            params,
+        )
+        total_count = cursor.fetchone()[0]
+    else:
+        total_count = _cache["count"].get(style, _cache["count"].get("", 0))
+
+    num_pages = max(1, (total_count + per_page - 1) // per_page)
+    page_num = min(page_num, num_pages)
 
     return render(request, "beers/beer_list.html", {
-        "page": page,
+        "beers": beers,
         "styles": top_styles,
         "active_style": style,
         "search_query": search,
+        "page_num": page_num,
+        "num_pages": num_pages,
+        "has_previous": page_num > 1,
+        "has_next": page_num < num_pages,
+        "previous_page": page_num - 1,
+        "next_page": page_num + 1,
+        "total_count": total_count,
+        "page_range": range(1, num_pages + 1),
     })
 
 
