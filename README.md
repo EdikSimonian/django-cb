@@ -11,7 +11,7 @@
 
 Use Couchbase as your Django database. Drop-in backend for `django.db.models.Model` plus a standalone Document API for Couchbase-native patterns.
 
-**Docs:** [Database Backend](docs/database-backend.md) | [Document API](docs/document-api.md) | [Wagtail](docs/wagtail.md) | [Hybrid Architecture](docs/hybrid.md) | [Testing](docs/testing.md)
+**Docs:** [Database Backend](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/docs/database-backend.md) | [Document API](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/docs/document-api.md) | [Wagtail](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/docs/wagtail.md) | [Hybrid Architecture](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/docs/hybrid.md) | [Testing](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/docs/testing.md)
 
 ## Two Ways to Use It
 
@@ -245,35 +245,35 @@ If you use the database backend, the Document API auto-derives its config from `
 
 ## Tests
 
-**928+ tests** across 38 test modules, tested on Python 3.10 - 3.13.
+**1,258 tests** across 42 test modules, tested on Python 3.10 - 3.13. All tests run against a real Dockerized Couchbase instance — no mocks for query execution.
 
 | Suite | Tests | What's Covered |
 |-------|------:|----------------|
 | Document API | 784 | Fields, QuerySet, Manager, Document CRUD, signals, pagination, migrations, auth, sessions |
-| Backend Phase 1 | 57 | Connection, cursor, CRUD, admin login, content types |
-| Backend Phase 2 | 37 | FK JOINs, M2M, annotate, lookups, F/Q expressions |
-| Backend Phase 3 | 23 | Django admin, auth permissions, forms, sessions |
-| Backend Phase 4 | 18 | Migrations, schema ops, custom models |
-| Backend Phase 5 | 21 | Shared connections, subqueries, bulk ops, edge cases |
+| Django Backend | 156 | Connection, cursor, CRUD, JOINs, M2M, admin, forms, migrations, subqueries, bulk ops |
+| Edge Cases | 128 | Boundary conditions, type coercion, null handling, return types, regression tests |
+| Coverage Gaps | 114 | N1QL builders, paginator, signals, document options, aggregate+filter combos |
+| Wagtail CRUD | 28 | Page create, publish, edit, unpublish, delete, revisions, admin forms |
 | Security | 27 | Injection prevention, password isolation, backtick escaping |
-| Wagtail CRUD | 28 | Page create, publish, edit, unpublish, delete, revisions |
-
-**Overall: 91%+ unit test coverage, 0 known vulnerabilities (pip-audit clean).**
+| Concurrency | 18 | Multi-threaded CRUD, connection pool thread safety, race conditions, auto-increment contention |
 
 ```bash
-# All tests (requires local Couchbase)
-CB_BUCKET=testbucket pytest tests/ -p no:django --ignore=tests/test_wagtail_urls.py
+# Start Couchbase
+docker compose -f docker-compose.test.yml up -d
+./scripts/setup-test-couchbase.sh
 
-# Document API tests only (no Couchbase required)
-pytest tests/ -m "not integration" -p no:django
+# Run all tests
+CB_BUCKET=testbucket pytest tests/ --ignore=tests/testapp --ignore=tests/wagtailapp
 
 # Coverage
-coverage run -m pytest tests/ && coverage report --show-missing --include="src/*"
+CB_BUCKET=testbucket coverage run -m pytest tests/ && coverage report --include="src/*"
 ```
+
+See [Testing Guide](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/docs/testing.md) for full details.
 
 ## Example Project
 
-The [`example/`](example/) directory contains a complete Django + Wagtail + DRF project (BrewSync) deployed at the [live demo](https://django-couchbase-orm-production.up.railway.app). It includes:
+The [`example/`](https://github.com/EdikSimonian/django-couchbase-orm/tree/main/example) directory contains a complete Django + Wagtail + DRF project (BrewSync) deployed at the [live demo](https://django-couchbase-orm-production.up.railway.app). It includes:
 
 - Wagtail CMS with HomePage, BlogIndexPage, BlogPage
 - Beer catalog with Brewery/Beer models

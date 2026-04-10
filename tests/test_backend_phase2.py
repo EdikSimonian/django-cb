@@ -10,12 +10,11 @@ import pytest
 from django.db import connection
 from django.db.models import Count, Q, F
 
+from tests.conftest import couchbase_available
+
 pytestmark = [
     pytest.mark.phase2,
-    pytest.mark.skipif(
-        not __import__("tests.test_backend_crud", fromlist=["_couchbase_available"])._couchbase_available(),
-        reason="Local Couchbase not available",
-    ),
+    pytest.mark.skipif(not couchbase_available, reason="Local Couchbase not available"),
     pytest.mark.django_db(transaction=True),
 ]
 

@@ -13,6 +13,33 @@ if TYPE_CHECKING:
     from django_couchbase_orm.document import Document
 
 
+def _get_scan_consistency(alias: str = "default"):
+    """Get the configured scan consistency level for the given alias.
+
+    Configurable via COUCHBASE settings:
+        COUCHBASE = {
+            "default": {
+                ...
+                "SCAN_CONSISTENCY": "request_plus",  # or "not_bounded"
+            }
+        }
+
+    Defaults to REQUEST_PLUS (strong consistency).
+    """
+    from couchbase.n1ql import QueryScanConsistency
+
+    from django_couchbase_orm.connection import _get_config
+
+    try:
+        config = _get_config(alias)
+        level = config.get("SCAN_CONSISTENCY", "request_plus").lower()
+        if level == "not_bounded":
+            return QueryScanConsistency.NOT_BOUNDED
+    except Exception:
+        pass
+    return QueryScanConsistency.REQUEST_PLUS
+
+
 class QuerySet:
     """A lazy, chainable QuerySet that builds N1QL queries.
 
@@ -139,7 +166,14 @@ class QuerySet:
         from django_couchbase_orm.connection import get_cluster
 
         cluster = get_cluster(self._meta.bucket_alias)
-        result = cluster.query(statement, QueryOptions(positional_parameters=params, adhoc=False))
+        result = cluster.query(
+            statement,
+            QueryOptions(
+                positional_parameters=params,
+                adhoc=False,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+            ),
+        )
 
         if self._values_fields is not None:
             self._result_cache = list(result)
@@ -318,7 +352,14 @@ class QuerySet:
         from django_couchbase_orm.connection import get_cluster
 
         cluster = get_cluster(self._meta.bucket_alias)
-        result = cluster.query(statement, QueryOptions(positional_parameters=params, adhoc=False))
+        result = cluster.query(
+            statement,
+            QueryOptions(
+                positional_parameters=params,
+                adhoc=False,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+            ),
+        )
         for row in result:
             return row.get("__count", 0)
         return 0
@@ -358,7 +399,13 @@ class QuerySet:
         from django_couchbase_orm.connection import get_cluster
 
         cluster = get_cluster(self._meta.bucket_alias)
-        result = cluster.query(statement, QueryOptions(positional_parameters=params))
+        result = cluster.query(
+            statement,
+            QueryOptions(
+                positional_parameters=params,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+            ),
+        )
         for row in result:
             return dict(row)
         return {alias: None for alias in kwargs}
@@ -433,7 +480,6 @@ class QuerySet:
         query = self._build_query()
         statement, params = query.build_update(db_updates)
 
-        from couchbase.n1ql import QueryScanConsistency
         from couchbase.options import QueryOptions
 
         from django_couchbase_orm.connection import get_cluster
@@ -443,7 +489,8 @@ class QuerySet:
             statement,
             QueryOptions(
                 positional_parameters=params,
-                scan_consistency=QueryScanConsistency.REQUEST_PLUS,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+                metrics=True,
             ),
         )
         # Consume the result to execute the query
@@ -451,7 +498,7 @@ class QuerySet:
         meta = result.metadata()
         metrics = meta.metrics()
         if metrics:
-            return metrics.mutation_count()
+            return int(metrics.mutation_count())
         return len(rows)
 
     def delete(self) -> int:
@@ -462,7 +509,6 @@ class QuerySet:
         query = self._build_query()
         statement, params = query.build_delete()
 
-        from couchbase.n1ql import QueryScanConsistency
         from couchbase.options import QueryOptions
 
         from django_couchbase_orm.connection import get_cluster
@@ -472,14 +518,15 @@ class QuerySet:
             statement,
             QueryOptions(
                 positional_parameters=params,
-                scan_consistency=QueryScanConsistency.REQUEST_PLUS,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+                metrics=True,
             ),
         )
         rows = list(result)
         meta = result.metadata()
         metrics = meta.metrics()
         if metrics:
-            return metrics.mutation_count()
+            return int(metrics.mutation_count())
         return len(rows)
 
     def raw(self, statement: str, params: list | None = None) -> list:
@@ -489,7 +536,10 @@ class QuerySet:
         from django_couchbase_orm.connection import get_cluster
 
         cluster = get_cluster(self._meta.bucket_alias)
-        opts = QueryOptions(positional_parameters=params) if params else QueryOptions()
+        opts = QueryOptions(
+            positional_parameters=params if params else None,
+            scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+        )
         result = cluster.query(statement, opts)
         return list(result)
 
@@ -506,7 +556,13 @@ class QuerySet:
         from django_couchbase_orm.connection import get_cluster
 
         cluster = get_cluster(self._meta.bucket_alias)
-        result = cluster.query(statement, QueryOptions(positional_parameters=params))
+        result = cluster.query(
+            statement,
+            QueryOptions(
+                positional_parameters=params,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+            ),
+        )
 
         for row in result:
             doc_id = row.pop("__id", None)
@@ -532,7 +588,14 @@ class QuerySet:
         from django_couchbase_orm.async_connection import get_async_cluster
 
         cluster = await get_async_cluster(self._meta.bucket_alias)
-        result = cluster.query(statement, QueryOptions(positional_parameters=params, adhoc=False))
+        result = cluster.query(
+            statement,
+            QueryOptions(
+                positional_parameters=params,
+                adhoc=False,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+            ),
+        )
 
         if self._values_fields is not None:
             self._result_cache = [row async for row in result]
@@ -602,7 +665,14 @@ class QuerySet:
         from django_couchbase_orm.async_connection import get_async_cluster
 
         cluster = await get_async_cluster(self._meta.bucket_alias)
-        result = cluster.query(statement, QueryOptions(positional_parameters=params, adhoc=False))
+        result = cluster.query(
+            statement,
+            QueryOptions(
+                positional_parameters=params,
+                adhoc=False,
+                scan_consistency=_get_scan_consistency(self._meta.bucket_alias),
+            ),
+        )
         async for row in result:
             return row.get("__count", 0)
         return 0

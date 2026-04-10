@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from django.db import models
 from django.db.utils import DatabaseError
+
+logger = logging.getLogger("django.db.backends.couchbase.fields")
 
 
 class CouchbaseAutoField(models.AutoField):
@@ -48,7 +51,8 @@ def get_next_id(cluster, bucket_name, scope_name, table_name):
         coll = _get_collection()
         result = coll.binary().increment(counter_key, IncrementOptions(initial=SignedInt64(1)))
         return result.content
-    except Exception:
+    except Exception as e:
+        logger.debug("Counter increment attempt 1 failed for %s, retrying with lock: %s", table_name, e)
         with _counter_lock:
             try:
                 coll = _get_collection()

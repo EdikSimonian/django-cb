@@ -33,59 +33,6 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install package with dev dependencies
-        run: pip install -e ".[dev]" && pip install pytest-asyncio
-      - name: Run unit tests (skip integration and backend)
-        run: |
-          pytest tests/ -v --tb=short -m "not integration" \
-            --ignore=tests/test_backend_crud.py \
-            --ignore=tests/test_backend_phase2.py \
-            --ignore=tests/test_backend_phase3.py \
-            --ignore=tests/test_backend_phase4.py \
-            --ignore=tests/test_backend_phase5.py \
-            --ignore=tests/test_backend_settings.py \
-            --ignore=tests/test_backend_urls.py \
-            --ignore=tests/test_wagtail_settings.py \
-            --ignore=tests/test_wagtail_urls.py \
-            --ignore=tests/testapp \
-            --ignore=tests/wagtailapp
-      - name: Run tests with coverage
-        if: matrix.python-version == '3.12'
-        run: |
-          coverage run -m pytest tests/ -q -m "not integration" \
-            --ignore=tests/test_backend_crud.py \
-            --ignore=tests/test_backend_phase2.py \
-            --ignore=tests/test_backend_phase3.py \
-            --ignore=tests/test_backend_phase4.py \
-            --ignore=tests/test_backend_phase5.py \
-            --ignore=tests/test_backend_settings.py \
-            --ignore=tests/test_backend_urls.py \
-            --ignore=tests/test_wagtail_settings.py \
-            --ignore=tests/test_wagtail_urls.py \
-            --ignore=tests/testapp \
-            --ignore=tests/wagtailapp
-          coverage report --show-missing --include="src/*"
-          COVERAGE=$(coverage report --include="src/*" | grep TOTAL | awk '{print $NF}' | tr -d '%')
-          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
-      - name: Create coverage badge
-        if: matrix.python-version == '3.12' && github.ref == 'refs/heads/main'
-        run: |
-          echo '{"schemaVersion":1,"label":"coverage","message":"'"$COVERAGE"'%","color":"'"$(python -c "c=$COVERAGE; print('brightgreen' if c>=90 else 'green' if c>=80 else 'yellow' if c>=70 else 'orange' if c>=60 else 'red')")"'"}' > coverage.json
-          curl -s -X PATCH \
-            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/gists/${{ vars.COVERAGE_GIST_ID }} \
-            -d '{"files":{"coverage.json":{"content":"'"$(cat coverage.json)"'"}}}'
-
-  integration:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
     services:
       couchbase:
         image: couchbase/server:latest
@@ -96,9 +43,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install package
-        run: pip install -e ".[dev]" && pip install pytest-asyncio
+          python-version: ${{ matrix.python-version }}
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]" && pip install pytest-django pytest-asyncio wagtail
       - name: Wait for Couchbase
         run: |
           for i in $(seq 1 30); do
@@ -136,14 +83,65 @@ jobs:
             echo "Waiting for N1QL service... ($i)"
             sleep 3
           done
-      - name: Run integration tests
-        run: pytest tests/test_integration.py -v --tb=short
+      - name: Create test collections and indexes
+        run: |
+          for coll in edge_test_docs exdocs int_brewers int_beers int_ratings; do
+            curl -sf -X POST http://localhost:8091/pools/default/buckets/testbucket/scopes/_default/collections \
+              -u Administrator:password -d "name=$coll" 2>/dev/null || true
+          done
+          sleep 3
+          for coll in edge_test_docs exdocs int_brewers int_beers int_ratings; do
+            curl -sf -X POST http://localhost:8093/query/service \
+              -u Administrator:password \
+              -d "statement=CREATE PRIMARY INDEX IF NOT EXISTS ON \`testbucket\`.\`_default\`.\`$coll\`" 2>/dev/null || true
+          done
+          sleep 3
+      - name: Run Django migrations
+        env:
+          CB_BUCKET: testbucket
+          DJANGO_SETTINGS_MODULE: tests.django_settings
+        run: python -m django migrate --run-syncdb 2>&1 | tail -5
+      - name: Run all tests
+        env:
+          CB_CONNECTION_STRING: couchbase://localhost
+          CB_USERNAME: Administrator
+          CB_PASSWORD: password
+          CB_BUCKET: testbucket
+          CB_SCOPE: _default
+        run: |
+          pytest tests/ -v --tb=short \
+            --ignore=tests/testapp \
+            --ignore=tests/wagtailapp
+      - name: Run tests with coverage
+        if: matrix.python-version == '3.12'
+        env:
+          CB_CONNECTION_STRING: couchbase://localhost
+          CB_USERNAME: Administrator
+          CB_PASSWORD: password
+          CB_BUCKET: testbucket
+          CB_SCOPE: _default
+        run: |
+          coverage run -m pytest tests/ -q \
+            --ignore=tests/testapp \
+            --ignore=tests/wagtailapp
+          coverage report --show-missing --include="src/*"
+          COVERAGE=$(coverage report --include="src/*" | grep TOTAL | awk '{print $NF}' | tr -d '%')
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+      - name: Create coverage badge
+        if: matrix.python-version == '3.12' && github.ref == 'refs/heads/main'
+        run: |
+          echo '{"schemaVersion":1,"label":"coverage","message":"'"$COVERAGE"'%","color":"'"$(python -c "c=$COVERAGE; print('brightgreen' if c>=90 else 'green' if c>=80 else 'yellow' if c>=70 else 'orange' if c>=60 else 'red')")"'"}' > coverage.json
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.GIST_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/gists/${{ vars.COVERAGE_GIST_ID }} \
+            -d '{"files":{"coverage.json":{"content":"'"$(cat coverage.json)"'"}}}'
 
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [lint, test, integration]
+    needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

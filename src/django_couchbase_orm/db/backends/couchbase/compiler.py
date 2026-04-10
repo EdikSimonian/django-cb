@@ -327,7 +327,7 @@ class SQLUpdateCompiler(CouchbaseCompilerMixin, base_compiler.SQLUpdateCompiler)
         return " ".join(result), tuple(update_params + list(params))
 
     def execute_sql(self, result_type):
-        row_count = super(base_compiler.SQLUpdateCompiler, self).execute_sql(result_type)
+        row_count = super().execute_sql(result_type)
         is_empty = row_count is None
         row_count = row_count or 0
         for query in self.query.get_related_updates():

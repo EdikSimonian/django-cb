@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.db.backends.base.introspection import BaseDatabaseIntrospection, FieldInfo, TableInfo
+
+logger = logging.getLogger("django.db.backends.couchbase.introspection")
 
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):
@@ -30,8 +34,8 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 if scope.name == scope_name:
                     for col in scope.collections:
                         tables.append(TableInfo(col.name, "t"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Error listing collections: %s", e)
         return tables
 
     def get_table_description(self, cursor, table_name):
@@ -87,8 +91,8 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                     )
                     for key, value in doc.items()
                 ]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Error sampling collection '%s' for schema: %s", table_name, e)
 
         return []
 
@@ -127,8 +131,8 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                     "orders": [],
                     "type": "idx",
                 }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Error listing indexes for '%s': %s", table_name, e)
 
         return constraints
 

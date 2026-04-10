@@ -46,8 +46,8 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
                     for col in scope.collections:
                         if col.name == collection_name:
                             return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Error checking collection existence for %s.%s: %s", scope_name, collection_name, e)
         return False
 
     def _create_collection_and_index(self, collection_name):
@@ -69,8 +69,10 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             try:
                 cm = bucket.collections()
                 cm.create_scope(scope_name)
-            except Exception:
-                pass
+            except Exception as e:
+                err = str(e).lower()
+                if "already exists" not in err:
+                    logger.warning("Error creating scope '%s': %s", scope_name, e)
 
         # Create collection.
         try:
@@ -216,8 +218,10 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         try:
             self.connection.ensure_connection()
             self.connection.couchbase_cluster.query(sql).execute()
-        except Exception:
-            pass
+        except Exception as e:
+            err = str(e).lower()
+            if "not found" not in err and "12004" not in str(e):
+                logger.warning("Error dropping unique index %s: %s", index_name, e)
 
     def add_index(self, model, index):
         """Create a secondary N1QL index."""
@@ -234,14 +238,25 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         cols_sql = ", ".join(qn(c) for c in col_names)
 
         sql = f"CREATE INDEX IF NOT EXISTS {qn(index_name)} ON {keyspace} ({cols_sql})"
-        try:
-            self.connection.ensure_connection()
-            self.connection.couchbase_cluster.query(sql).execute()
-        except Exception as e:
-            err = str(e).lower()
-            if "already exists" in err or "12003" in str(e):
-                logger.warning("Index creation skipped for %s: %s", index_name, e)
-            else:
+        import time
+
+        for attempt in range(3):
+            try:
+                self.connection.ensure_connection()
+                self.connection.couchbase_cluster.query(sql).execute()
+                break
+            except Exception as e:
+                err = str(e).lower()
+                if "already exists" in err or "12003" in str(e):
+                    logger.warning("Index creation skipped for %s: %s", index_name, e)
+                    break
+                if "transient" in err or "build already in progress" in err:
+                    logger.warning("Transient error creating index %s (attempt %d): %s", index_name, attempt + 1, e)
+                    if attempt < 2:
+                        time.sleep(3)
+                        continue
+                    logger.warning("Index %s will be built in background by Couchbase", index_name)
+                    break
                 raise
 
     def remove_index(self, model, index):
@@ -259,8 +274,10 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         try:
             self.connection.ensure_connection()
             self.connection.couchbase_cluster.query(sql).execute()
-        except Exception:
-            pass
+        except Exception as e:
+            err = str(e).lower()
+            if "not found" not in err and "12004" not in str(e):
+                logger.warning("Error dropping index %s: %s", index_name, e)
 
     def add_constraint(self, model, constraint):
         """Handle constraints — create unique index for UniqueConstraint."""
@@ -314,8 +331,10 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             try:
                 self.connection.ensure_connection()
                 self.connection.couchbase_cluster.query(sql).execute()
-            except Exception:
-                pass
+            except Exception as e:
+                err = str(e).lower()
+                if "already exists" not in err:
+                    logger.warning("Error creating index %s: %s", index_name, e)
 
     def _create_unique_sql(
         self,

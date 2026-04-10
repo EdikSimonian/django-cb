@@ -43,25 +43,11 @@ LOCAL_COUCHBASE = {
     }
 }
 
-def _couchbase_available():
-    try:
-        import socket
-
-        s = socket.socket()
-        s.settimeout(2)
-        s.connect(("localhost", 8091))
-        s.close()
-        return True
-    except Exception:
-        return False
-
+from tests.conftest import couchbase_available
 
 pytestmark = [
     pytest.mark.integration,
-    pytest.mark.skipif(
-        not _couchbase_available(),
-        reason="Local Couchbase not available",
-    ),
+    pytest.mark.skipif(not couchbase_available, reason="Local Couchbase not available"),
 ]
 
 

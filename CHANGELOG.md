@@ -1,5 +1,74 @@
 # Changelog
 
+## 1.1.0 (2026-04-09)
+
+### Critical Bug Fixes
+
+- **Fixed UPDATE operations returning cursor instead of int** — `SQLUpdateCompiler.execute_sql()` used wrong `super()` call, bypassing Django's `rowcount` extraction. This broke `model.save()`, `QuerySet.update()`, login (`last_login` update), and any code doing `_update(values) > 0`. ([compiler.py:330](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/src/django_couchbase_orm/db/backends/couchbase/compiler.py#L330))
+- **Fixed missing `REQUEST_PLUS` scan consistency on reads** — Document API queries (`_execute()`, `count()`, `aggregate()`, `iterator()`, `raw()`) used eventual consistency by default, causing reads to return stale data after writes.
+- **Fixed `update()` and `delete()` returning 0 for successful mutations** — Missing `metrics=True` in `QueryOptions` meant the Couchbase SDK never populated `mutation_count`. Also fixed `UnsignedInt64` not being cast to `int`.
+- **Fixed `get_or_create()` race condition** — Concurrent calls with the same `_id` caused `DocumentExistsException`. Now retries `get()` on duplicate key error.
+- **Fixed Couchbase SDK segfault on connection close/reopen** — `pytest-django` and Django's `TransactionTestCase` close and reopen DB connections, triggering a segfault in the SDK's C++ layer. Fixed with module-level cluster cache and `close()` override that preserves the connection.
+
+### Performance
+
+- **Configurable scan consistency** — New `SCAN_CONSISTENCY` setting in COUCHBASE config. Defaults to `request_plus` (strong consistency). Set to `not_bounded` for read-heavy apps that can tolerate stale reads (~50-100ms savings per query).
+- **Async queries now use consistent scan level** — `_async_execute()` and `acount()` previously defaulted to `NOT_BOUNDED`; now uses the same configured level as sync queries.
+
+### Security
+
+- **Removed default password fallback** — `get_or_create_couchbase_settings()` no longer defaults to `"password"` when PASSWORD is not configured. Logs a warning instead.
+- **Redacted query text in error logs** — N1QL error logs now replace positional parameters (`$1`, `$2`) with `$?` to prevent sensitive WHERE clause data from leaking to log files.
+- **Document `_id` type enforcement** — Non-string `_id` values are now coerced to `str()` instead of silently accepting wrong types.
+
+### Production Readiness
+
+- **Added logging to 16 silent error handlers** — All bare `except Exception: pass` patterns across `connection.py`, `schema.py`, `introspection.py`, `fields.py`, `cursor.py`, `base.py`, and `async_connection.py` now log with context.
+- **Fixed `manager.exists()` swallowing all exceptions** — Now only catches `DocumentNotFoundException`; connection errors propagate.
+- **N1QL errors 3000/4210 logged at ERROR level** — Previously logged at WARNING; now clearly indicates queries that need rewriting for Couchbase.
+- **Added `cleanup_stale_connections()`** — New function to prune dead cluster/bucket/collection entries from the connection cache. Call periodically in long-running servers.
+- **Added `reset_cached_clusters()`** — Clears the Django backend's module-level cluster cache. Call in Gunicorn `pre_fork` hook for clean worker recycling.
+- **Schema editor retries on transient index errors** — `add_index()` now retries up to 3 times with backoff when Couchbase returns "Build Already In Progress".
+
+### Testing Infrastructure
+
+- **1,258 tests** — up from 940, all running against real Dockerized Couchbase (no mocks for query execution).
+- **Docker Compose test setup** — `docker-compose.test.yml` + `scripts/setup-test-couchbase.sh` for one-command local testing.
+- **Unified CI** — All tests (unit, integration, backend, Wagtail) run in a single GitHub Actions job with Couchbase service container on Python 3.10-3.13.
+- **New test suites**:
+  - `test_edge_cases.py` (128 tests) — boundary conditions, type coercion, null handling, return type regressions
+  - `test_coverage_gaps.py` (114 tests) — N1QL builders, paginator, signals, document options, aggregate+filter combos
+  - `test_concurrency.py` (18 tests) — multi-threaded CRUD, connection pool safety, auto-increment contention, `get_or_create` race
+  - `test_production_readiness.py` (17 tests) — error logging verification, `exists()` error propagation, resource cleanup
+  - `test_queryset_execution.py` rewritten — replaced mocked tests with real Couchbase execution
+- **Wagtail tests fixed** — all 28 Wagtail CRUD tests now pass with correct settings auto-detection.
+- **Shared test utilities** — `flush_collection()` in conftest.py replaces 5 duplicate cleanup functions.
+
+### Code Quality
+
+- **Ruff clean** — all lint checks pass (`ruff check src/`)
+- **Deduplicated signal imports** — moved to module level in `document.py`
+- **Removed unused imports** — cleaned up leftover `QueryScanConsistency` imports after refactoring
+
+### Stats
+
+- 1,258 tests (all against real Couchbase), 42 test modules
+- Python 3.10, 3.11, 3.12, 3.13 supported
+- Ruff: all checks passed
+- 7 critical/high bugs fixed, 16 silent error handlers replaced with logging
+
+---
+
+## 1.0.0 (2026-04-05)
+
+### Highlights
+
+- **Django Database Backend** — Full `django.db.backends` implementation for Couchbase. Standard Django models, migrations, admin, auth, sessions, forms, DRF, and Wagtail work transparently.
+- **Wagtail CMS support** — Full page tree, publishing, revisions, admin, search.
+- **Combined with Document API** — Both APIs share the same Couchbase connection.
+
+---
+
 ## 0.6.0 (2026-04-02)
 
 ### New Features

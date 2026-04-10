@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from django.db.backends.base.base import BaseDatabaseWrapper
@@ -13,6 +14,8 @@ from .features import DatabaseFeatures
 from .introspection import DatabaseIntrospection
 from .operations import DatabaseOperations
 from .schema import DatabaseSchemaEditor
+
+logger = logging.getLogger("django.db.backends.couchbase")
 
 _autofield_patched = False
 
@@ -127,6 +130,19 @@ class _CouchbaseDatabase:
         pass
 
 
+_cached_clusters: dict[str, tuple] = {}  # cache_key -> (cluster, bucket)
+
+
+def reset_cached_clusters():
+    """Clear the module-level cluster cache.
+
+    Call this when recycling workers (e.g., Gunicorn pre_fork) or in tests.
+    Does NOT close SDK connections (to avoid segfault) — they will be
+    garbage collected when the process exits.
+    """
+    _cached_clusters.clear()
+
+
 class DatabaseWrapper(BaseDatabaseWrapper):
     vendor = "couchbase"
     display_name = "Couchbase"
@@ -231,6 +247,16 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         }
 
     def get_new_connection(self, conn_params):
+        # Reuse existing cluster/bucket from module-level cache to avoid the
+        # Couchbase SDK segfault that occurs when opening a new bucket while
+        # a previous cluster's background threads are still running.
+        cache_key = str(conn_params.get("connection_string", "")) + ":" + str(conn_params.get("bucket", ""))
+        if cache_key in _cached_clusters:
+            cluster, bucket = _cached_clusters[cache_key]
+            self._cluster = cluster
+            self._bucket = bucket
+            return cluster
+
         from couchbase.auth import PasswordAuthenticator
         from couchbase.cluster import Cluster
         from couchbase.options import ClusterOptions, ClusterTimeoutOptions
@@ -260,6 +286,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
         self._cluster = cluster
         self._bucket = cluster.bucket(conn_params["bucket"])
+        _cached_clusters[cache_key] = (self._cluster, self._bucket)
 
         return cluster
 
@@ -300,21 +327,53 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # No-op: transactions not yet supported.
         pass
 
+    def close(self):
+        """Override close() to keep the Couchbase cluster alive.
+
+        The Couchbase SDK's C++ layer segfaults if cluster.close() is called
+        while background threads (logging_meter, threshold_logging) are still
+        running, or if a new cluster.bucket() call is made before the old
+        cluster's threads have fully stopped. This is a known SDK issue on
+        macOS and can occur on Linux under load.
+
+        Instead of closing, we keep the cluster connection alive in
+        _cached_clusters and reuse it on the next ensure_connection(). The
+        cluster is only released when the Python process exits (via GC).
+
+        For Gunicorn/uWSGI worker recycling, call reset_cached_clusters()
+        in the pre_fork or post_fork hook.
+        """
+        self.run_on_commit = []
+        self.needs_rollback = False
+
     def _close(self):
+        pass
+
+    def ensure_connection(self):
+        """Override to reuse existing cluster — avoids SDK segfault on reconnect."""
         if self.connection is not None:
-            try:
-                self.connection.close()
-            except Exception:
-                pass
-        self.connection = None
-        self._cluster = None
-        self._bucket = None
+            return
+        if self._cluster is not None and self._bucket is not None:
+            self.connection = self._cluster
+            return
+        super().ensure_connection()
+
+    def connect(self):
+        """Override connect() to reuse existing cluster connection."""
+        if self._cluster is not None and self._bucket is not None:
+            self.connection = self._cluster
+            self.init_connection_state()
+            return
+        super().connect()
 
     def is_usable(self):
         try:
+            if self.connection is None:
+                return False
             self.connection.ping()
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug("Connection not usable: %s", e)
             return False
 
     def get_database_version(self):

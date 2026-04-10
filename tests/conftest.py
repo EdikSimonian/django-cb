@@ -1,4 +1,5 @@
 import os
+import socket
 from unittest.mock import MagicMock, PropertyMock
 
 import django
@@ -6,6 +7,72 @@ import pytest
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tests.django_settings")
 django.setup()
+
+
+# ============================================================
+# Couchbase availability detection
+# ============================================================
+
+
+def _couchbase_available():
+    """Check if a local Couchbase instance is reachable."""
+    try:
+        s = socket.socket()
+        s.settimeout(2)
+        s.connect(("localhost", 8091))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+# Expose as module-level for imports from other test files
+couchbase_available = _couchbase_available()
+
+
+@pytest.fixture(scope="session")
+def couchbase_ready():
+    """Session-scoped fixture that skips if Couchbase is not running.
+
+    Usage:
+        @pytest.mark.usefixtures("couchbase_ready")
+        class TestSomething:
+            ...
+    """
+    if not couchbase_available:
+        pytest.skip("Local Couchbase not available — start with: docker compose -f docker-compose.test.yml up -d")
+
+
+# ============================================================
+# Shared test utilities
+# ============================================================
+
+
+def flush_collection(collection_name: str = "edge_test_docs"):
+    """Delete all documents from a Couchbase test collection.
+
+    Used by integration test fixtures for cleanup. Safe to call
+    when Couchbase is not running (silently returns).
+    """
+    from django_couchbase_orm.connection import get_cluster, reset_connections
+
+    reset_connections()
+    try:
+        from couchbase.n1ql import QueryScanConsistency
+        from couchbase.options import QueryOptions
+
+        cluster = get_cluster()
+        cluster.query(
+            f"DELETE FROM `testbucket`.`_default`.`{collection_name}`",
+            QueryOptions(scan_consistency=QueryScanConsistency.REQUEST_PLUS),
+        ).execute()
+    except Exception:
+        pass
+
+
+# ============================================================
+# Mock objects (kept for pure unit tests that don't need a database)
+# ============================================================
 
 
 class MockCASResult:

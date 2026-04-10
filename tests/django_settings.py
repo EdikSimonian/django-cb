@@ -32,7 +32,9 @@ try:
         "wagtail.search",
         "wagtail.admin",
         "wagtail",
+        "tests.wagtailapp",
     ]
+    WAGTAILADMIN_BASE_URL = "http://localhost:8000"
 except ImportError:
     pass
 

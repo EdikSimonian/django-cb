@@ -758,20 +758,26 @@ class CouchbaseCursor:
                     self._rowcount = 0
                     return
 
-            # Handle N1QL limitations gracefully for SELECT queries:
-            # 3000 = syntax error (often from unsupported SQL patterns)
-            # 4210 = correlated subquery in GROUP BY (unsupported pattern)
-            # Return empty result instead of crashing.
+            # Handle N1QL limitations for SELECT queries:
+            # 3000 = syntax error (often from unsupported SQL patterns in migrations)
+            # 4210 = correlated subquery in GROUP BY (unsupported N1QL pattern)
+            # Log as error for visibility but return empty to avoid crashing migrations.
             if err_code in ("3000", "4210") and (
                 n1ql.strip().upper().startswith("SELECT")
                 or "None(" in n1ql  # PostgreSQL-specific function in data migration
             ):
                 import logging
 
-                logging.getLogger("django.db.backends.couchbase").warning(
-                    "N1QL limitation (error %s): unsupported query pattern. Returning empty result. Query: %s",
+                # Redact WHERE clause params from logged query to avoid exposing
+                # sensitive data (usernames, emails, etc.) in log files.
+                import re as _re_log
+
+                redacted = _re_log.sub(r"\$\d+", "$?", n1ql[:200])
+                logging.getLogger("django.db.backends.couchbase").error(
+                    "N1QL error %s: unsupported query pattern — returning empty result. "
+                    "This may indicate a query that needs rewriting for Couchbase. Query: %s",
                     err_code,
-                    n1ql[:200],
+                    redacted,
                 )
                 self._rows = []
                 self._rowcount = 0
@@ -806,7 +812,12 @@ class CouchbaseCursor:
                 self._rowcount = int(mc)
             else:
                 self._rowcount = len(self._rows)
-        except Exception:
+        except Exception as e:
+            import logging
+
+            logging.getLogger("django.db.backends.couchbase").debug(
+                "Could not extract query metrics (falling back to row count): %s", e
+            )
             self._rowcount = len(self._rows)
 
     def _fix_bare_table_names(self, sql: str) -> str:

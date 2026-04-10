@@ -12,12 +12,14 @@ import uuid
 
 import pytest
 
+from tests.conftest import couchbase_available
+
+# Skip the entire module if Wagtail is not installed.
+wagtail = pytest.importorskip("wagtail")
+
 pytestmark = [
     pytest.mark.wagtail,
-    pytest.mark.skipif(
-        not __import__("tests.test_backend_crud", fromlist=["_couchbase_available"])._couchbase_available(),
-        reason="Local Couchbase not available",
-    ),
+    pytest.mark.skipif(not couchbase_available, reason="Local Couchbase not available"),
     pytest.mark.django_db(transaction=True),
 ]
 

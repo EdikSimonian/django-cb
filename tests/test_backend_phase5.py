@@ -8,12 +8,11 @@ import uuid
 
 import pytest
 
+from tests.conftest import couchbase_available
+
 pytestmark = [
     pytest.mark.phase5,
-    pytest.mark.skipif(
-        not __import__("tests.test_backend_crud", fromlist=["_couchbase_available"])._couchbase_available(),
-        reason="Local Couchbase not available",
-    ),
+    pytest.mark.skipif(not couchbase_available, reason="Local Couchbase not available"),
     pytest.mark.django_db(transaction=True),
 ]
 

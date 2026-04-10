@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import timedelta
 from typing import Any
+
+logger = logging.getLogger("django_couchbase_orm.async_connection")
 
 _async_connections: dict[str, Any] = {}
 _async_lock = asyncio.Lock()
@@ -104,8 +107,8 @@ async def close_async_connections():
             if key.startswith("cluster:"):
                 try:
                     _async_connections[key].close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Error closing async cluster '%s': %s", key, e)
         _async_connections.clear()
 
 

@@ -215,7 +215,9 @@ class DocumentManager:
     ) -> tuple[Document, bool]:
         """Get an existing document or create a new one.
 
-        Returns a tuple of (document, created).
+        Returns a tuple of (document, created). Thread-safe: handles the race
+        condition where another thread creates the document between our get()
+        and create() calls.
         """
         if _id is not None:
             try:
@@ -225,15 +227,26 @@ class DocumentManager:
                 pass
 
         create_kwargs = {**kwargs, **(defaults or {})}
-        doc = self.create(_id=_id, **create_kwargs)
-        return doc, True
+        try:
+            doc = self.create(_id=_id, **create_kwargs)
+            return doc, True
+        except OperationError as e:
+            # Another thread created the document between our get() and create().
+            # Retry the get().
+            if "DocumentExistsException" in str(e) or "already exists" in str(e).lower():
+                if _id is not None:
+                    doc = self.get(pk=_id)
+                    return doc, False
+            raise
 
     def exists(self, pk: str) -> bool:
         """Check if a document with the given pk exists."""
+        from couchbase.exceptions import DocumentNotFoundException
+
         try:
             result = self._collection.exists(pk)
             return result.exists
-        except Exception:
+        except DocumentNotFoundException:
             return False
 
     def bulk_create(self, documents: list[Document]) -> list[Document]:

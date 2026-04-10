@@ -11,6 +11,7 @@ from django_couchbase_orm.exceptions import (
 )
 from django_couchbase_orm.fields.base import BaseField
 from django_couchbase_orm.options import DocumentOptions
+from django_couchbase_orm.signals import post_delete, post_save, pre_delete, pre_save
 from django_couchbase_orm.utils import generate_id
 
 # Global registry of all Document subclasses, keyed by class name
@@ -106,6 +107,8 @@ class Document(metaclass=DocumentMetaclass):
         abstract = True
 
     def __init__(self, _id: str | None = None, **kwargs):
+        if _id is not None and not isinstance(_id, str):
+            _id = str(_id)
         self._id: str = _id or generate_id()
         self._data: dict[str, Any] = {}
         self._is_new: bool = True
@@ -235,8 +238,6 @@ class Document(metaclass=DocumentMetaclass):
         Uses upsert to create or replace the document.
         Fires pre_save and post_save signals.
         """
-        from django_couchbase_orm.signals import post_save, pre_save
-
         created = self._is_new
 
         # Apply pre_save_value for fields that support it (auto_now, auto_now_add)
@@ -268,8 +269,6 @@ class Document(metaclass=DocumentMetaclass):
 
         Fires pre_delete and post_delete signals.
         """
-        from django_couchbase_orm.signals import post_delete, pre_delete
-
         pre_delete.send(sender=type(self), instance=self)
 
         collection = self._get_collection()
@@ -311,8 +310,6 @@ class Document(metaclass=DocumentMetaclass):
 
     async def asave(self, validate: bool = True) -> None:
         """Async version of save()."""
-        from django_couchbase_orm.signals import post_save, pre_save
-
         created = self._is_new
 
         for field_name, field in self._meta.fields.items():
@@ -340,8 +337,6 @@ class Document(metaclass=DocumentMetaclass):
 
     async def adelete(self) -> None:
         """Async version of delete()."""
-        from django_couchbase_orm.signals import post_delete, pre_delete
-
         pre_delete.send(sender=type(self), instance=self)
 
         collection = await self._aget_collection()

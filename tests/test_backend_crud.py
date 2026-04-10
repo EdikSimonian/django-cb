@@ -20,16 +20,7 @@ from django_couchbase_orm.db.backends.couchbase.cursor import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _couchbase_available():
-    try:
-        import socket
-        s = socket.socket()
-        s.settimeout(2)
-        s.connect(("localhost", 8091))
-        s.close()
-        return True
-    except Exception:
-        return False
+from tests.conftest import couchbase_available
 
 
 BACKEND_SETTINGS = {
@@ -45,7 +36,7 @@ BACKEND_SETTINGS = {
 
 pytestmark = [
     pytest.mark.backend,
-    pytest.mark.skipif(not _couchbase_available(), reason="Local Couchbase not available"),
+    pytest.mark.skipif(not couchbase_available, reason="Local Couchbase not available"),
     pytest.mark.django_db(transaction=True),
 ]
 

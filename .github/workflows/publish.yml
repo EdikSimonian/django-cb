@@ -12,15 +12,81 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      couchbase:
+        image: couchbase/server:latest
+        ports:
+          - 8091-8097:8091-8097
+          - 11210-11211:11210-11211
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install package with dev dependencies
-        run: pip install -e ".[dev]" && pip install pytest-asyncio
+        run: pip install -e ".[dev]" && pip install pytest-django pytest-asyncio wagtail
+      - name: Wait for Couchbase
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:8091/pools && break
+            echo "Waiting for Couchbase... ($i)"
+            sleep 2
+          done
+      - name: Initialize Couchbase
+        run: |
+          curl -s -X POST http://localhost:8091/clusterInit \
+            -d 'hostname=127.0.0.1&username=Administrator&password=password&port=SAME&services=kv,n1ql,index&memoryQuota=256&indexMemoryQuota=256'
+          sleep 5
+          curl -s -X POST http://localhost:8091/pools/default/buckets \
+            -u Administrator:password \
+            -d 'name=testbucket&ramQuota=128&bucketType=couchbase'
+          sleep 5
+          curl -s -X POST http://localhost:8091/settings/indexes \
+            -u Administrator:password \
+            -d 'storageMode=plasma'
+          sleep 3
+          curl -s -X POST http://localhost:8093/query/service \
+            -u Administrator:password \
+            -d 'statement=CREATE PRIMARY INDEX IF NOT EXISTS ON `testbucket`._default._default'
+          sleep 3
+      - name: Wait for N1QL service
+        run: |
+          for i in $(seq 1 20); do
+            result=$(curl -s -X POST http://localhost:8093/query/service \
+              -u Administrator:password \
+              -d 'statement=SELECT 1' 2>&1)
+            if echo "$result" | grep -q '"status": "success"'; then
+              echo "N1QL service is ready"
+              break
+            fi
+            echo "Waiting for N1QL service... ($i)"
+            sleep 3
+          done
+      - name: Create test collections
+        run: |
+          for coll in edge_test_docs exdocs int_brewers int_beers int_ratings; do
+            curl -sf -X POST http://localhost:8091/pools/default/buckets/testbucket/scopes/_default/collections \
+              -u Administrator:password -d "name=$coll" 2>/dev/null || true
+          done
+          sleep 3
+          for coll in edge_test_docs exdocs int_brewers int_beers int_ratings; do
+            curl -sf -X POST http://localhost:8093/query/service \
+              -u Administrator:password \
+              -d "statement=CREATE PRIMARY INDEX IF NOT EXISTS ON \`testbucket\`.\`_default\`.\`$coll\`" 2>/dev/null || true
+          done
+          sleep 3
+      - name: Run Django migrations
+        env:
+          CB_BUCKET: testbucket
+          DJANGO_SETTINGS_MODULE: tests.django_settings
+        run: python -m django migrate --run-syncdb 2>&1 | tail -5
       - name: Run tests
-        run: pytest tests/ -v --tb=short -m "not integration" --ignore=tests/test_wagtail_urls.py --ignore=tests/test_wagtail_crud.py -p no:django
+        env:
+          CB_BUCKET: testbucket
+        run: |
+          pytest tests/ -v --tb=short \
+            --ignore=tests/testapp \
+            --ignore=tests/wagtailapp
 
   publish:
     runs-on: ubuntu-latest

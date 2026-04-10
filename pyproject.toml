@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-couchbase-orm"
-version = "1.0.0"
+version = "1.1.0"
 description = "Couchbase database backend for Django. Drop-in replacement for SQL databases with full ORM support, plus a standalone Document API."
 readme = "README.md"
 license = "Apache-2.0"
@@ -53,8 +53,9 @@ wagtail = [
 Homepage = "https://github.com/EdikSimonian/django-couchbase-orm"
 Repository = "https://github.com/EdikSimonian/django-couchbase-orm"
 Issues = "https://github.com/EdikSimonian/django-couchbase-orm/issues"
-Demo = "https://django-couchbase-orm-production.up.railway.app"
+Changelog = "https://github.com/EdikSimonian/django-couchbase-orm/blob/main/CHANGELOG.md"
 Documentation = "https://github.com/EdikSimonian/django-couchbase-orm/tree/main/docs"
+Demo = "https://django-couchbase-orm-production.up.railway.app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/django_couchbase_orm"]
@@ -65,6 +66,7 @@ pythonpath = ["src", "."]
 DJANGO_SETTINGS_MODULE = "tests.django_settings"
 markers = [
     "integration: tests that require a local Couchbase instance",
+    "backend: Django database backend tests (require Couchbase)",
 ]
 asyncio_mode = "auto"
 

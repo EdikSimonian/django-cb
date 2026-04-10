@@ -1,3 +1,4 @@
+import logging
 import threading
 from datetime import timedelta
 from typing import Any
@@ -5,6 +6,8 @@ from typing import Any
 from django.conf import settings
 
 from django_couchbase_orm.exceptions import ConnectionError
+
+logger = logging.getLogger("django_couchbase_orm.connection")
 
 _connections: dict[str, Any] = {}
 _lock = threading.RLock()
@@ -145,8 +148,8 @@ def close_connections():
             if key.startswith("cluster:"):
                 try:
                     _connections[key].close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Error closing cluster connection '%s': %s", key, e)
         _connections.clear()
 
 
@@ -154,6 +157,28 @@ def reset_connections():
     """Reset the connection cache. Useful for testing."""
     with _lock:
         _connections.clear()
+
+
+def cleanup_stale_connections():
+    """Remove stale bucket/collection entries for dead clusters.
+
+    Call periodically in long-running servers to prevent unbounded
+    growth of the _connections cache.
+    """
+    with _lock:
+        stale_aliases = set()
+        for key, obj in list(_connections.items()):
+            if key.startswith("cluster:"):
+                if not _is_cluster_alive(obj):
+                    alias = key.split(":", 1)[1]
+                    stale_aliases.add(alias)
+
+        for alias in stale_aliases:
+            for key in list(_connections.keys()):
+                parts = key.split(":")
+                if len(parts) >= 2 and parts[1] == alias:
+                    _connections.pop(key, None)
+            logger.info("Removed stale connection cache entries for alias '%s'", alias)
 
 
 def share_backend_connection(db_alias="default"):
@@ -191,10 +216,15 @@ def share_backend_connection(db_alias="default"):
         bucket_cache_key = f"bucket:{cb_alias}"
         with _lock:
             if bucket_cache_key not in _connections:
-                _connections[bucket_cache_key] = cluster.bucket(bucket_name)
+                # Use the backend's cached bucket to avoid a second open_bucket call
+                # which can segfault in some Couchbase SDK versions.
+                if hasattr(conn, "_bucket") and conn._bucket is not None:
+                    _connections[bucket_cache_key] = conn._bucket
+                else:
+                    _connections[bucket_cache_key] = cluster.bucket(bucket_name)
 
-    except Exception:
-        pass  # Non-critical — both systems work independently.
+    except Exception as e:
+        logger.debug("Could not share backend connection (non-critical): %s", e)
 
 
 def get_or_create_couchbase_settings():
@@ -212,10 +242,17 @@ def get_or_create_couchbase_settings():
     for alias, db_config in getattr(settings, "DATABASES", {}).items():
         engine = db_config.get("ENGINE", "")
         if "couchbase" in engine:
+            password = db_config.get("PASSWORD", "")
+            if not password:
+                logger.warning(
+                    "Couchbase password not configured for DATABASES alias '%s'. "
+                    "Set PASSWORD in your DATABASES settings.",
+                    alias,
+                )
             cb_config = {
                 "CONNECTION_STRING": db_config.get("HOST", "couchbase://localhost"),
                 "USERNAME": db_config.get("USER", "Administrator"),
-                "PASSWORD": db_config.get("PASSWORD", "password"),
+                "PASSWORD": password,
                 "BUCKET": db_config.get("NAME", "default"),
                 "SCOPE": db_config.get("OPTIONS", {}).get("SCOPE", "_default"),
             }
