@@ -529,12 +529,13 @@ class CouchbaseCursor:
     parameters and executes queries via cluster.query().
     """
 
-    def __init__(self, cluster, bucket_name, scope_name="_default", scan_consistency="request_plus", adhoc=True):
+    def __init__(self, cluster, bucket_name, scope_name="_default", scan_consistency="request_plus", adhoc=True, wrapper=None):
         self._cluster = cluster
         self._bucket_name = bucket_name
         self._scope_name = scope_name
         self._scan_consistency = scan_consistency
         self._adhoc = adhoc  # False = use prepared statement caching.
+        self._wrapper = wrapper  # DatabaseWrapper ref for transaction state.
         self._results = None
         self._rows: list[tuple] = []
         self._row_index = 0
@@ -734,13 +735,17 @@ class CouchbaseCursor:
 
         n1ql, positional_params = self._convert_params(sql_stripped, params)
 
+        # Build QueryOptions, injecting txid when inside a N1QL transaction.
+        raw_opts = {}
+        if self._wrapper is not None and self._wrapper._txid is not None:
+            raw_opts["txid"] = self._wrapper._txid
         opts = QueryOptions(
             positional_parameters=positional_params if positional_params else None,
             scan_consistency=self._scan_consistency,
             metrics=True,
             adhoc=self._adhoc,
-            # Set default scope context so unqualified names resolve correctly.
             query_context=f"default:`{self._bucket_name}`.`{self._scope_name}`",
+            raw=raw_opts if raw_opts else None,
         )
 
         try:

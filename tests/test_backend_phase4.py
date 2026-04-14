@@ -130,30 +130,79 @@ class TestSchemaEditor:
 
 
 class TestTransactions:
-    """Test transaction behavior."""
+    """Test N1QL transaction behavior (BEGIN WORK / COMMIT / ROLLBACK)."""
 
-    def test_atomic_basic(self):
-        """atomic() should not crash."""
+    def test_atomic_commit(self):
+        """Data created inside atomic() should persist after commit."""
         from django.db import transaction
         from django.contrib.auth.models import Group
 
-        name = f"txn_{uuid.uuid4().hex[:6]}"
+        name = f"txn_commit_{uuid.uuid4().hex[:6]}"
         with transaction.atomic():
             Group.objects.create(name=name)
-        assert Group.objects.filter(name=name).exists()
+        assert Group.objects.filter(name=name).exists(), "Data should persist after commit"
         Group.objects.filter(name=name).delete()
 
-    def test_atomic_nested(self):
-        """Nested atomic() should not crash."""
+    def test_atomic_rollback(self):
+        """Data created inside atomic() should be discarded on exception."""
         from django.db import transaction
         from django.contrib.auth.models import Group
 
-        name = f"txn_n_{uuid.uuid4().hex[:6]}"
-        with transaction.atomic():
+        name = f"txn_rb_{uuid.uuid4().hex[:6]}"
+        try:
             with transaction.atomic():
                 Group.objects.create(name=name)
-        assert Group.objects.filter(name=name).exists()
+                raise ValueError("Force rollback")
+        except ValueError:
+            pass
+        assert not Group.objects.filter(name=name).exists(), "Data should be gone after rollback"
+
+    def test_atomic_multiple_ops_commit(self):
+        """Multiple operations inside atomic() should all commit together."""
+        from django.db import transaction
+        from django.contrib.auth.models import Group
+
+        n1 = f"txn_m1_{uuid.uuid4().hex[:6]}"
+        n2 = f"txn_m2_{uuid.uuid4().hex[:6]}"
+        with transaction.atomic():
+            Group.objects.create(name=n1)
+            Group.objects.create(name=n2)
+        assert Group.objects.filter(name=n1).exists()
+        assert Group.objects.filter(name=n2).exists()
+        Group.objects.filter(name__in=[n1, n2]).delete()
+
+    def test_atomic_multiple_ops_rollback(self):
+        """Multiple operations should all rollback together."""
+        from django.db import transaction
+        from django.contrib.auth.models import Group
+
+        n1 = f"txn_mr1_{uuid.uuid4().hex[:6]}"
+        n2 = f"txn_mr2_{uuid.uuid4().hex[:6]}"
+        try:
+            with transaction.atomic():
+                Group.objects.create(name=n1)
+                Group.objects.create(name=n2)
+                raise ValueError("Force rollback")
+        except ValueError:
+            pass
+        assert not Group.objects.filter(name=n1).exists(), "First op should be rolled back"
+        assert not Group.objects.filter(name=n2).exists(), "Second op should be rolled back"
+
+    def test_atomic_is_fast(self):
+        """Transaction cycle should complete in under 2 seconds."""
+        import time
+
+        from django.db import connection, transaction
+        from django.contrib.auth.models import Group
+
+        connection.ensure_connection()
+        name = f"txn_fast_{uuid.uuid4().hex[:6]}"
+        t0 = time.time()
+        with transaction.atomic():
+            Group.objects.create(name=name)
+        elapsed = time.time() - t0
         Group.objects.filter(name=name).delete()
+        assert elapsed < 2.0, f"Transaction took {elapsed:.1f}s, expected < 2s"
 
 
 class TestUniqueConstraints:

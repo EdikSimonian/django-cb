@@ -516,8 +516,8 @@ class TestDatabaseOperations:
 class TestDatabaseFeatures:
     """Test feature flags are set correctly."""
 
-    def test_no_transactions(self):
-        assert not connection.features.supports_transactions
+    def test_supports_transactions(self):
+        assert connection.features.supports_transactions
 
     def test_no_savepoints(self):
         assert not connection.features.uses_savepoints

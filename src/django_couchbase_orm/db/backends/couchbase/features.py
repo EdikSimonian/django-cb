@@ -10,11 +10,11 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_unspecified_pk = False
     allows_auto_pk_0 = False
 
-    # Couchbase 7.0+ supports ACID transactions but we disable initially.
-    supports_transactions = False
+    # Couchbase 7.0+ supports ACID transactions via N1QL BEGIN/COMMIT/ROLLBACK.
+    supports_transactions = True
     uses_savepoints = False
     can_release_savepoints = False
-    atomic_transactions = False
+    atomic_transactions = True
     can_rollback_ddl = False
 
     # No SELECT FOR UPDATE in N1QL.

@@ -235,6 +235,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # Cache for the Couchbase cluster/bucket objects.
         self._cluster = None
         self._bucket = None
+        # Active N1QL transaction ID (set by BEGIN WORK, cleared by COMMIT/ROLLBACK).
+        self._txid: str | None = None
 
     def get_connection_params(self):
         settings = self.settings_dict
@@ -307,6 +309,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             params["scope"],
             scan_consistency=scan_consistency,
             adhoc=adhoc,
+            wrapper=self,
         )
 
     def init_connection_state(self):
@@ -325,16 +328,84 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         share_backend_connection(self.alias)
 
     def _set_autocommit(self, autocommit):
-        # Couchbase doesn't have traditional autocommit mode.
+        # Couchbase is always in autocommit for individual ops.
         pass
+
+    def _get_durability_level(self):
+        """Get the configured durability level for transactions.
+
+        Returns the DURABILITY_LEVEL from DATABASES OPTIONS.
+        Default is "none" which works on single-node and multi-node clusters.
+        Production multi-node clusters should set "majority" for full ACID durability.
+        """
+        return self.settings_dict.get("OPTIONS", {}).get("DURABILITY_LEVEL", "none")
+
+    def _start_transaction_under_autocommit(self):
+        """Start a N1QL transaction via BEGIN WORK."""
+        from couchbase.options import QueryOptions
+
+        self.ensure_connection()
+        durability = self._get_durability_level()
+        try:
+            result = self._cluster.query(
+                "BEGIN WORK",
+                QueryOptions(raw={"durability_level": durability}),
+            )
+            rows = list(result.rows())
+            self._txid = rows[0]["txid"]
+        except Exception as e:
+            self._txid = None
+            err_msg = str(e)
+            if "DurabilityImpossible" in err_msg or "durability_impossible" in err_msg:
+                logger.warning(
+                    "Transaction BEGIN failed: durability level '%s' requires replicas. "
+                    "Set DURABILITY_LEVEL to 'none' in DATABASES OPTIONS for single-node "
+                    "clusters, or add replica nodes for '%s' durability.",
+                    durability,
+                    durability,
+                )
+            else:
+                logger.warning("Transaction BEGIN failed: %s", e)
 
     def _commit(self):
-        # No-op: transactions not yet supported.
-        pass
+        if self._txid is None:
+            return
+        from couchbase.options import QueryOptions
+
+        txid = self._txid
+        self._txid = None
+        try:
+            durability = self._get_durability_level()
+            self._cluster.query(
+                "COMMIT WORK",
+                QueryOptions(raw={"txid": txid, "durability_level": durability}),
+            ).execute()
+        except Exception as e:
+            err_msg = str(e)
+            if "DurabilityImpossible" in err_msg or "durability_impossible" in err_msg:
+                raise _CouchbaseDatabase.OperationalError(
+                    f"Transaction COMMIT failed: durability level '{self._get_durability_level()}' "
+                    f"requires replica nodes. Set DURABILITY_LEVEL='none' in DATABASES OPTIONS "
+                    f"for single-node clusters."
+                ) from e
+            raise
 
     def _rollback(self):
-        # No-op: transactions not yet supported.
-        pass
+        if self._txid is None:
+            return
+        from couchbase.options import QueryOptions
+
+        txid = self._txid
+        self._txid = None
+        try:
+            self._cluster.query(
+                "ROLLBACK WORK",
+                QueryOptions(raw={"txid": txid}),
+            ).execute()
+        except Exception as e:
+            # Rollback failures are logged but not raised — the transaction
+            # will expire and auto-rollback on the server side.
+            logger.debug("Transaction ROLLBACK failed (will auto-expire): %s", e)
 
     def close(self):
         """Override close() to keep the Couchbase cluster alive.
