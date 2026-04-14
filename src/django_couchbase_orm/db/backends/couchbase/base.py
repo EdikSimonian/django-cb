@@ -270,10 +270,15 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         if "query_timeout" in timeout_config:
             timeout_kwargs["query_timeout"] = timedelta(seconds=timeout_config["query_timeout"])
 
-        cluster_opts = ClusterOptions(
-            authenticator,
-            timeout_options=(ClusterTimeoutOptions(**timeout_kwargs) if timeout_kwargs else None),
-        )
+        cluster_kwargs = {
+            "timeout_options": ClusterTimeoutOptions(**timeout_kwargs) if timeout_kwargs else None,
+        }
+        # OpenTelemetry tracing support (SDK 4.6+).
+        tracer = self.settings_dict.get("OPTIONS", {}).get("TRACER")
+        if tracer is not None:
+            cluster_kwargs["tracer"] = tracer
+
+        cluster_opts = ClusterOptions(authenticator, **cluster_kwargs)
 
         conn_string = conn_params["connection_string"]
         if conn_string.startswith("couchbases://"):
@@ -292,12 +297,16 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     def create_cursor(self, name=None):
         params = self.get_connection_params()
-        scan_consistency = self.settings_dict.get("OPTIONS", {}).get("SCAN_CONSISTENCY", "request_plus")
+        options = self.settings_dict.get("OPTIONS", {})
+        scan_consistency = options.get("SCAN_CONSISTENCY", "request_plus")
+        # adhoc=False enables prepared statement caching (server-side query plan reuse).
+        adhoc = options.get("ADHOC", True)
         return CouchbaseCursor(
             self.connection,
             params["bucket"],
             params["scope"],
             scan_consistency=scan_consistency,
+            adhoc=adhoc,
         )
 
     def init_connection_state(self):

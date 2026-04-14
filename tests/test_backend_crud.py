@@ -531,3 +531,9 @@ class TestDatabaseFeatures:
 
     def test_bulk_insert(self):
         assert connection.features.has_bulk_insert
+
+    def test_supports_window_functions(self):
+        assert connection.features.supports_over_clause
+
+    def test_supports_timezones(self):
+        assert connection.features.supports_timezones

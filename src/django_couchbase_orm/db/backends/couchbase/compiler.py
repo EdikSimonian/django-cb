@@ -89,31 +89,41 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
             table_name,
         )
 
-    def _find_existing_by_unique(self, opts, fields_data):
-        """Check if a document with matching unique_together fields exists.
-
-        If found, return its PK to prevent duplicate creation.
-        Couchbase has no database-level UNIQUE constraint, so we enforce
-        it at the application level during INSERT.
-        """
-        # Collect all uniqueness constraints
+    def _collect_unique_sets(self, opts):
+        """Collect all uniqueness constraints from the model's Meta."""
         unique_sets = []
 
         # unique_together from Meta
-        unique_together = getattr(opts, "unique_together", ())
-        for fields in unique_together:
-            unique_sets.append(fields)
+        for fields in getattr(opts, "unique_together", ()):
+            unique_sets.append(tuple(fields))
 
         # Single-field unique=True
         for field in opts.local_fields:
             if field.unique and not field.primary_key:
                 unique_sets.append((field.name,))
 
+        # UniqueConstraint from Meta.constraints
+        from django.db.models.constraints import UniqueConstraint
+
+        for constraint in getattr(opts, "constraints", []):
+            if isinstance(constraint, UniqueConstraint) and not constraint.condition:
+                unique_sets.append(tuple(constraint.fields))
+
+        return unique_sets
+
+    def _find_existing_by_unique(self, opts, fields_data):
+        """Check if a document with matching unique fields already exists.
+
+        Couchbase has no database-level UNIQUE constraint, so we enforce
+        it at the application level during INSERT.
+
+        Returns (existing_pk, violated_fields) or (None, None).
+        """
+        unique_sets = self._collect_unique_sets(opts)
         if not unique_sets:
-            return None
+            return None, None
 
         for unique_fields in unique_sets:
-            # Build WHERE clause for the unique fields
             conditions = []
             params = []
             all_present = True
@@ -133,7 +143,6 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
             if not all_present or not conditions:
                 continue
 
-            # Query for existing document
             from couchbase.options import QueryOptions
 
             bucket = self.connection.settings_dict["NAME"]
@@ -154,7 +163,7 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
                 for row in result.rows():
                     existing_id = row.get("id")
                     if existing_id is not None:
-                        return existing_id
+                        return existing_id, unique_fields
             except Exception as e:
                 err_str = str(e)
                 if "KeyspaceNotFoundException" in type(e).__name__ or "12003" in err_str:
@@ -162,7 +171,7 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
                 else:
                     raise
 
-        return None
+        return None, None
 
     def as_sql(self):
         """Generate N1QL UPSERT statements.
@@ -209,10 +218,25 @@ class SQLInsertCompiler(CouchbaseCompilerMixin, base_compiler.SQLInsertCompiler)
                         fields_data[col_name] = value
 
             if doc_id is None:
-                # Check unique_together constraints to prevent duplicates.
-                existing_pk = self._find_existing_by_unique(opts, fields_data)
+                # Check unique constraints to prevent duplicates.
+                existing_pk, violated_fields = self._find_existing_by_unique(opts, fields_data)
                 if existing_pk is not None:
-                    doc_id = existing_pk
+                    on_conflict = getattr(self.query, "on_conflict", None)
+                    if on_conflict is not None:
+                        from django.db.models.constants import OnConflict
+
+                        if on_conflict == OnConflict.IGNORE:
+                            continue  # Skip this row.
+                        elif on_conflict == OnConflict.UPDATE:
+                            doc_id = existing_pk  # Update existing doc.
+                    if doc_id is None:
+                        # Normal INSERT — raise IntegrityError.
+                        from django.db import IntegrityError
+
+                        cols = ", ".join(violated_fields)
+                        raise IntegrityError(
+                            f"UNIQUE constraint failed: {opts.db_table} ({cols})"
+                        )
                 else:
                     doc_id = self._generate_pk(opts.db_table)
 

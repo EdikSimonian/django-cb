@@ -107,12 +107,12 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         constraints = {}
 
         try:
+            from couchbase.options import QueryOptions
+
             self.connection.ensure_connection()
             result = self.connection.couchbase_cluster.query(
                 "SELECT * FROM system:indexes WHERE bucket_id = $1 AND scope_id = $2 AND keyspace_id = $3",
-                bucket_name,
-                scope_name,
-                table_name,
+                QueryOptions(positional_parameters=[bucket_name, scope_name, table_name]),
             )
             for row in result.rows():
                 idx = row.get("indexes", row)

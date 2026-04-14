@@ -21,10 +21,11 @@ class DateTimeField(BaseField):
         if value is None:
             return None
         if isinstance(value, datetime):
-            return value
+            return self._ensure_tz_aware(value)
         if isinstance(value, str):
             try:
-                return datetime.fromisoformat(value)
+                dt = datetime.fromisoformat(value)
+                return self._ensure_tz_aware(dt)
             except (ValueError, TypeError) as e:
                 raise ValidationError(f"Field '{self.name}' could not parse datetime from '{value}'.") from e
         raise ValidationError(f"Field '{self.name}' expected a datetime or ISO string, got {type(value).__name__}.")
@@ -33,6 +34,9 @@ class DateTimeField(BaseField):
         if value is None:
             return None
         if isinstance(value, datetime):
+            # Normalize to UTC for consistent storage.
+            if value.tzinfo is not None:
+                value = value.astimezone(timezone.utc)
             return value.isoformat()
         if isinstance(value, str):
             # Validate it parses
@@ -60,6 +64,20 @@ class DateTimeField(BaseField):
         if self.auto_now_add and is_new:
             return now
         return value
+
+    @staticmethod
+    def _ensure_tz_aware(dt: datetime) -> datetime:
+        """Make a datetime timezone-aware (UTC) when Django's USE_TZ=True."""
+        if dt.tzinfo is not None:
+            return dt
+        try:
+            from django.conf import settings
+
+            if getattr(settings, "USE_TZ", False):
+                return dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+        return dt
 
 
 class DateField(BaseField):

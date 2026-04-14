@@ -52,8 +52,15 @@ class TestDateTimeField:
         f.name = "test"
         dt = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
         result = f.to_json(dt)
-        assert "2024-01-15" in result
-        assert "10:30" in result
+        assert result == "2024-01-15T10:30:00+00:00"
+
+    def test_to_json_converts_to_utc(self):
+        f = DateTimeField()
+        f.name = "test"
+        est = timezone(timedelta(hours=-5))
+        dt = datetime(2024, 1, 15, 10, 30, 0, tzinfo=est)  # 10:30 EST = 15:30 UTC
+        result = f.to_json(dt)
+        assert "15:30:00+00:00" in result
 
     def test_to_json_string_passthrough(self):
         f = DateTimeField()

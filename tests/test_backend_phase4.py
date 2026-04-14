@@ -156,6 +156,45 @@ class TestTransactions:
         Group.objects.filter(name=name).delete()
 
 
+class TestUniqueConstraints:
+    """Test unique=True enforcement raises IntegrityError."""
+
+    def test_unique_field_raises_integrity_error(self):
+        """Creating two tags with the same unique name should raise IntegrityError."""
+        from django.db import IntegrityError
+        from tests.testapp.models import Tag
+
+        name = f"uniq_{uuid.uuid4().hex[:6]}"
+        Tag.objects.create(name=name)
+        with pytest.raises(IntegrityError, match="UNIQUE constraint failed"):
+            Tag.objects.create(name=name)
+        Tag.objects.filter(name=name).delete()
+
+    def test_unique_field_different_values_ok(self):
+        """Different unique values should work fine."""
+        from tests.testapp.models import Tag
+
+        n1 = f"uq1_{uuid.uuid4().hex[:6]}"
+        n2 = f"uq2_{uuid.uuid4().hex[:6]}"
+        t1 = Tag.objects.create(name=n1)
+        t2 = Tag.objects.create(name=n2)
+        assert t1.pk != t2.pk
+        Tag.objects.filter(name__in=[n1, n2]).delete()
+
+    def test_bulk_create_ignore_conflicts(self):
+        """bulk_create(ignore_conflicts=True) should skip duplicates silently."""
+        from tests.testapp.models import Tag
+
+        name = f"bulk_{uuid.uuid4().hex[:6]}"
+        Tag.objects.create(name=name)
+        # Should not raise — duplicates are silently ignored.
+        Tag.objects.bulk_create(
+            [Tag(name=name), Tag(name=f"{name}_2")],
+            ignore_conflicts=True,
+        )
+        Tag.objects.filter(name__startswith=name).delete()
+
+
 class TestCustomModel:
     """Test custom model (Article + Tag) with FK, M2M, auto_now."""
 

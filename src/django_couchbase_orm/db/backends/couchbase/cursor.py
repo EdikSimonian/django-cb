@@ -529,11 +529,12 @@ class CouchbaseCursor:
     parameters and executes queries via cluster.query().
     """
 
-    def __init__(self, cluster, bucket_name, scope_name="_default", scan_consistency="request_plus"):
+    def __init__(self, cluster, bucket_name, scope_name="_default", scan_consistency="request_plus", adhoc=True):
         self._cluster = cluster
         self._bucket_name = bucket_name
         self._scope_name = scope_name
         self._scan_consistency = scan_consistency
+        self._adhoc = adhoc  # False = use prepared statement caching.
         self._results = None
         self._rows: list[tuple] = []
         self._row_index = 0
@@ -737,6 +738,9 @@ class CouchbaseCursor:
             positional_parameters=positional_params if positional_params else None,
             scan_consistency=self._scan_consistency,
             metrics=True,
+            adhoc=self._adhoc,
+            # Set default scope context so unqualified names resolve correctly.
+            query_context=f"default:`{self._bucket_name}`.`{self._scope_name}`",
         )
 
         try:

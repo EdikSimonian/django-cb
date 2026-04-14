@@ -126,8 +126,15 @@ class DatabaseOperations(BaseDatabaseOperations):
             return None
         if isinstance(value, str):
             return value
+        # Store timezone-aware datetimes in UTC with offset suffix.
         if timezone.is_aware(value):
-            value = timezone.make_naive(value, datetime.timezone.utc)
+            value = value.astimezone(datetime.timezone.utc)
+        else:
+            # Naive datetime with USE_TZ=True: assume UTC (matches Django convention).
+            from django.conf import settings
+
+            if getattr(settings, "USE_TZ", False):
+                value = value.replace(tzinfo=datetime.timezone.utc)
         return value.isoformat()
 
     def adapt_timefield_value(self, value):
@@ -206,8 +213,21 @@ class DatabaseOperations(BaseDatabaseOperations):
         if isinstance(value, str):
             from django.utils.dateparse import parse_datetime
 
-            return parse_datetime(value)
+            dt = parse_datetime(value)
+            if dt is not None:
+                return self._ensure_tz_aware(dt)
+            return dt
+        if isinstance(value, datetime.datetime):
+            return self._ensure_tz_aware(value)
         return value
+
+    def _ensure_tz_aware(self, dt):
+        """Make a datetime timezone-aware (UTC) when USE_TZ=True."""
+        from django.conf import settings
+
+        if getattr(settings, "USE_TZ", False) and timezone.is_naive(dt):
+            return timezone.make_aware(dt, datetime.timezone.utc)
+        return dt
 
     def convert_timefield_value(self, value, expression, connection):
         if value is None:

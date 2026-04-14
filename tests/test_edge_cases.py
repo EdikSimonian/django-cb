@@ -648,7 +648,20 @@ class TestOperationsDateHandling:
         assert "2024-01-15" in result
         assert "10:30:00" in result
 
-    def test_adapt_datetimefield_aware_to_utc(self):
+    @pytest.mark.parametrize("use_tz", [True])
+    def test_adapt_datetimefield_naive_with_use_tz(self, use_tz, settings):
+        from django_couchbase_orm.db.backends.couchbase.operations import DatabaseOperations
+
+        settings.USE_TZ = use_tz
+        ops = DatabaseOperations.__new__(DatabaseOperations)
+        dt = datetime.datetime(2024, 1, 15, 10, 30, 0)
+        result = ops.adapt_datetimefield_value(dt)
+        assert "2024-01-15" in result
+        assert "10:30:00" in result
+        # With USE_TZ=True, naive datetimes get UTC offset.
+        assert "+00:00" in result
+
+    def test_adapt_datetimefield_aware_preserves_utc(self):
         from django_couchbase_orm.db.backends.couchbase.operations import DatabaseOperations
 
         ops = DatabaseOperations.__new__(DatabaseOperations)
@@ -656,6 +669,7 @@ class TestOperationsDateHandling:
         dt = datetime.datetime(2024, 1, 15, 15, 30, 0, tzinfo=tz)  # 15:30 +05:00 = 10:30 UTC
         result = ops.adapt_datetimefield_value(dt)
         assert "10:30:00" in result
+        assert "+00:00" in result  # Stored as UTC with offset
 
     def test_adapt_decimalfield(self):
         from decimal import Decimal

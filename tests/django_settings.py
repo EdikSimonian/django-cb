@@ -75,7 +75,7 @@ COUCHBASE = {
         "CONNECTION_STRING": os.environ.get("CB_CONNECTION_STRING", "couchbase://localhost"),
         "USERNAME": os.environ.get("CB_USERNAME", "Administrator"),
         "PASSWORD": os.environ.get("CB_PASSWORD", "password"),
-        "BUCKET": os.environ.get("CB_BUCKET", "test_bucket"),
+        "BUCKET": os.environ.get("CB_BUCKET", "testbucket"),
         "SCOPE": os.environ.get("CB_SCOPE", "_default"),
     }
 }
@@ -84,7 +84,7 @@ COUCHBASE = {
 DATABASES = {
     "default": {
         "ENGINE": "django_couchbase_orm.db.backends.couchbase",
-        "NAME": os.environ.get("CB_BUCKET", "test_bucket"),
+        "NAME": os.environ.get("CB_BUCKET", "testbucket"),
         "USER": os.environ.get("CB_USERNAME", "Administrator"),
         "PASSWORD": os.environ.get("CB_PASSWORD", "password"),
         "HOST": os.environ.get("CB_CONNECTION_STRING", "couchbase://localhost"),

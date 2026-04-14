@@ -75,8 +75,8 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     # N1QL supports DISTINCT.
     can_distinct_on_fields = False
 
-    # N1QL doesn't have window functions.
-    supports_over_clause = False
+    # N1QL supports window functions (ROW_NUMBER, RANK, etc.) since Server 6.5.
+    supports_over_clause = True
 
     # Couchbase stores strings — no separate REAL type.
     has_real_datatype = False
@@ -90,8 +90,8 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     # N1QL supports date string lookups.
     supports_date_lookup_using_string = True
 
-    # Couchbase stores ISO strings, no timezone database.
-    supports_timezones = False
+    # Couchbase stores ISO 8601 strings with UTC offset (+00:00).
+    supports_timezones = True
     has_zoneinfo_database = False
 
     # N1QL doesn't have FILTER clause in aggregates.

@@ -58,11 +58,11 @@ class DatabaseCreation(BaseDatabaseCreation):
         return test_db_name
 
     def serialize_db_to_string(self):
-        """Skip serialization — Couchbase doesn't support transaction rollback."""
+        """Skip serialization — Couchbase test isolation uses flush, not rollback."""
         return ""
 
     def deserialize_db_from_string(self, data):
-        """Skip deserialization."""
+        """Skip deserialization — Couchbase test isolation uses flush, not rollback."""
         pass
 
     def destroy_test_db(self, old_database_name=None, verbosity=1, keepdb=False, suffix=None):
