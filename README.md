@@ -245,7 +245,7 @@ If you use the database backend, the Document API auto-derives its config from `
 
 ## Tests
 
-**1,258 tests** across 42 test modules, tested on Python 3.10 - 3.13. All tests run against a real Dockerized Couchbase instance — no mocks for query execution.
+**1,253 tests** across 47 test modules, tested on Python 3.10 - 3.14. All tests run against a real Dockerized Couchbase instance — no mocks for query execution.
 
 | Suite | Tests | What's Covered |
 |-------|------:|----------------|

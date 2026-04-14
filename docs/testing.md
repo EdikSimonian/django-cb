@@ -1,6 +1,6 @@
 # Testing Guide
 
-The project has **1,233+ tests** covering the full stack: Document API, Django database backend, Wagtail integration, concurrency, and edge cases. All tests run against a real Dockerized Couchbase instance.
+The project has **1,253+ tests** covering the full stack: Document API, Django database backend, Wagtail integration, concurrency, and edge cases. All tests run against a real Dockerized Couchbase instance.
 
 ## Quick Start
 
@@ -108,18 +108,19 @@ tests/
 
 | File | Tests | Category |
 |------|------:|----------|
-| `test_edge_cases.py` | 128 | Edge cases, regression tests |
+| `test_edge_cases.py` | 129 | Edge cases, regression tests |
 | `test_coverage_gaps.py` | 114 | N1QL builders, paginator, signals, options |
 | `test_fields.py` | 79 | Field validation, defaults, choices |
 | `test_migration_operations.py` | 66 | Migration operations |
-| `test_backend_crud.py` | 57 | Django backend CRUD |
+| `test_backend_crud.py` | 59 | Django backend CRUD, feature flags |
 | `test_document.py` | 46 | Document CRUD, serialization |
 | `test_transforms.py` | 42 | Lookup transforms |
 | `test_compound_fields.py` | 42 | List, Dict, Embedded fields |
 | `test_integration.py` | 39 | Document API end-to-end |
 | `test_backend_phase2.py` | 37 | JOINs, M2M, F/Q objects |
 | `test_migration_writer.py` | 35 | Migration file generation |
-| `test_datetime_fields.py` | 33 | DateTime, auto_now |
+| `test_datetime_fields.py` | 34 | DateTime, auto_now, timezone |
+| `test_backend_phase5.py` | 34 | Subqueries, bulk ops, timezones, window fns, caching, transactions |
 | `test_migration_executor.py` | 31 | Migration execution |
 | `test_queryset.py` | 30 | QuerySet building |
 | `test_migration_autodetector.py` | 29 | Change auto-detection |
@@ -127,13 +128,13 @@ tests/
 | `test_auth.py` | 28 | Django auth integration |
 | `test_queryset_execution.py` | 27 | QuerySet execution (real Couchbase) |
 | `test_backend_security.py` | 27 | Security tests |
+| `test_backend_phase4.py` | 24 | Migrations, schema editor, transactions, unique constraints |
 | `test_backend_phase3.py` | 23 | Admin, forms, sessions |
-| `test_backend_phase5.py` | 21 | Subqueries, bulk ops |
 | `test_n1ql.py` | 20 | N1QL query builder |
 | `test_q.py` | 19 | Q objects |
 | `test_reference_field.py` | 18 | ReferenceField |
 | `test_concurrency.py` | 18 | Multi-threaded operations |
-| `test_backend_phase4.py` | 18 | Migrations, schema editor |
+| `test_production_readiness.py` | 17 | Error handling, logging, resource mgmt |
 | `test_paginator.py` | 17 | Pagination |
 | `test_migration_state.py` | 17 | Migration state tracking |
 | `test_manager.py` | 17 | DocumentManager |
@@ -149,9 +150,8 @@ tests/
 | `test_select_related.py` | 7 | Reference prefetching |
 | `test_options.py` | 7 | DocumentOptions |
 | `test_exceptions.py` | 6 | Exception classes |
-| `test_production_readiness.py` | 17 | Error handling, logging, resource mgmt |
 | `test_management.py` | 4 | Management commands |
-| **Total** | **1,258** | |
+| **Total** | **1,253** | |
 
 ## Concurrency Tests
 
