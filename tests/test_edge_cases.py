@@ -9,7 +9,6 @@ Tests are split into two groups:
 """
 
 import datetime
-import sys
 import uuid
 
 import pytest
@@ -1202,10 +1201,6 @@ class TestAggregations:
 
 @integration_mark
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.skipif(
-    sys.version_info >= (3, 14),
-    reason="Couchbase SDK segfaults on Python 3.14 during test DB creation",
-)
 class TestDjangoBackendUpdateRegression:
     """Regression tests for Django backend UPDATE operations.
 
