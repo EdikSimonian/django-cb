@@ -291,6 +291,10 @@ pip install -e ".[dev]"
 pytest
 ```
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history and migration notes.
+
 ## License
 
 Apache 2.0
