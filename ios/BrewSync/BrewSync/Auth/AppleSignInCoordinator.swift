@@ -1,12 +1,13 @@
 import AuthenticationServices
 import Foundation
+import UIKit
 
 /// Handles Sign in with Apple credential flow and delegates back to AuthManager.
 class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
 
-    private var continuation: CheckedContinuation<(idToken: String, fullName: String?), Error>?
+    private var continuation: CheckedContinuation<(idToken: String, fullName: String?, authorizationCode: String?), Error>?
 
-    func signIn() async throws -> (idToken: String, fullName: String?) {
+    func signIn() async throws -> (idToken: String, fullName: String?, authorizationCode: String?) {
         return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
 
@@ -40,8 +41,15 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
             }
         }
 
-        print("[Apple] Got ID token, user: \(credential.user.prefix(10))..., name: \(fullName ?? "nil")")
-        continuation?.resume(returning: (idToken: idToken, fullName: fullName))
+        // authorizationCode is needed server-side to exchange for Apple's refresh token,
+        // which we must keep so we can revoke it on account deletion (App Store req).
+        var authCode: String?
+        if let codeData = credential.authorizationCode {
+            authCode = String(data: codeData, encoding: .utf8)
+        }
+
+        print("[Apple] Got ID token, user: \(credential.user.prefix(10))..., name: \(fullName ?? "nil"), code: \(authCode != nil ? "yes" : "no")")
+        continuation?.resume(returning: (idToken: idToken, fullName: fullName, authorizationCode: authCode))
         continuation = nil
     }
 
@@ -57,6 +65,12 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
     // MARK: - ASAuthorizationControllerPresentationContextProviding
 
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        ASPresentationAnchor()
+        // On iPad, the authorization controller needs the real key window,
+        // not a fresh empty ASPresentationAnchor. Returning an unattached
+        // window causes the request to fail silently on iPadOS.
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first(where: { $0.isKeyWindow }) ?? ASPresentationAnchor()
     }
 }

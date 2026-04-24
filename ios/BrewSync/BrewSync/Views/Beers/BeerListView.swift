@@ -80,20 +80,33 @@ struct BeerListView: View {
                     .padding(.bottom, 8)
 
                     // Beer grid
-                    ScrollView {
-                        LazyVGrid(columns: [
-                            GridItem(.flexible(), spacing: 12),
-                            GridItem(.flexible(), spacing: 12),
-                        ], spacing: 12) {
-                            ForEach(viewModel.filteredBeers) { beer in
-                                NavigationLink(destination: BeerDetailView(beer: beer)) {
-                                    BeerCardView(beer: beer)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                    if viewModel.filteredBeers.isEmpty {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            Image(systemName: "mug")
+                                .font(.system(size: 48))
+                                .foregroundColor(Theme.textMuted)
+                            Text("Loading beers...")
+                                .font(.headline)
+                                .foregroundColor(Theme.text)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom, 20)
+                        Spacer()
+                    } else {
+                        ScrollView {
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12),
+                            ], spacing: 12) {
+                                ForEach(viewModel.filteredBeers) { beer in
+                                    NavigationLink(destination: BeerDetailView(beer: beer)) {
+                                        BeerCardView(beer: beer)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal)
+                            .padding(.bottom, 20)
+                        }
                     }
                 }
             }

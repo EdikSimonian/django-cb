@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Support — BrewSync{% endblock %}
+
+{% block hero %}
+<section class="hero" style="padding: 40px 20px;">
+    <h1>Support</h1>
+    <p class="hero-sub">Help, contact, and frequently asked questions</p>
+</section>
+{% endblock %}
+
+{% block content %}
+<div class="cms-content" style="max-width: 800px; margin: 0 auto; padding-bottom: 60px;">
+
+<h2>Contact Us</h2>
+<p>Need help with BrewSync? Found a bug? Have a feature request? Reach out and we'll get back to you as quickly as we can.</p>
+<p><strong>Email:</strong> <a href="mailto:edisimon@gmail.com">edisimon@gmail.com</a></p>
+<p>Please include the following in any support request so we can help you faster:</p>
+<ul>
+    <li>Your iOS version and device model (e.g., "iPhone 15 Pro on iOS 17.4")</li>
+    <li>The version of BrewSync you're using (shown at the bottom of the account menu)</li>
+    <li>A short description of what you were trying to do</li>
+    <li>What happened and what you expected to happen</li>
+</ul>
+
+<h2>Frequently Asked Questions</h2>
+
+<h3>Do I need an account to use BrewSync?</h3>
+<p>No. You can browse the entire catalog of beers, breweries, and blog posts without signing in. An account is only required if you want to submit ratings.</p>
+
+<h3>How do I sign in?</h3>
+<p>BrewSync supports Sign in with Apple, Sign in with Google, and email/password. Tap the account icon in the top right of any tab to see sign-in options.</p>
+
+<h3>How do I submit a rating?</h3>
+<p>Open any beer's detail page and tap the stars under "Your Rating." You'll be prompted to sign in if you haven't already. Ratings are 1 to 5 stars and update the beer's overall average within a few seconds.</p>
+
+<h3>Can I edit or delete a rating?</h3>
+<p>Yes. Tap the stars again to change your rating, or submit a 0-star rating to remove it. You can only edit your own ratings.</p>
+
+<h3>Does BrewSync work offline?</h3>
+<p>Yes. Once the app has synced, you can browse beers, breweries, and blog posts without an internet connection. Any ratings you submit while offline will be uploaded automatically the next time you're online.</p>
+
+<h3>I submitted a rating but the average didn't change.</h3>
+<p>Averages are recomputed every few seconds on the server. Pull down to refresh the beer detail page, or wait up to 30 seconds and check again. Your own rating is always shown immediately, even before the global average updates.</p>
+
+<h3>How do I delete my account?</h3>
+<p>Open the account menu (top-right icon), tap "Delete Account," and confirm. This permanently removes your account, all your ratings, and all authentication data. The action is immediate and cannot be undone.</p>
+
+<h3>I forgot my password.</h3>
+<p>If you signed in with Apple or Google, use the same option again to sign back in — there's no password to remember. For email/password accounts, contact us at the email above and we'll help reset it.</p>
+
+<h3>Why can't I sign in with Apple?</h3>
+<p>Sign in with Apple requires iOS 16 or later and that you be signed into an Apple ID on your device. If it's not working, check <strong>Settings → Apple ID</strong> and make sure you're signed in, then try again. On older devices, use Sign in with Google or email instead.</p>
+
+<h3>Is my data private?</h3>
+<p>Your username and ratings are public (visible to other users of the app). Your email address and any other account information are not shared. See our <a href="/privacy/">Privacy Policy</a> for full details.</p>
+
+<h3>Can I use BrewSync on iPad?</h3>
+<p>BrewSync is designed for iPhone. It's not currently available on iPad.</p>
+
+<h2>Report a Bug</h2>
+<p>If something's broken, please email <a href="mailto:edisimon@gmail.com">edisimon@gmail.com</a> with:</p>
+<ul>
+    <li>What you did (step by step)</li>
+    <li>What happened</li>
+    <li>A screenshot, if you can take one</li>
+    <li>Your device model and iOS version</li>
+</ul>
+<p>We read every report and respond to most within a day.</p>
+
+<h2>Other Links</h2>
+<ul>
+    <li><a href="/privacy/">Privacy Policy</a></li>
+    <li><a href="/">Home</a></li>
+</ul>
+
+</div>
+{% endblock %}

@@ -21,7 +21,7 @@ struct LoginView: View {
                     Text("BrewSync")
                         .font(.system(size: 36, weight: .bold))
                         .foregroundColor(Theme.accentLight)
-                    Text("Where Django, Couchbase, and beer\nwalk into a bucket")
+                    Text("Discover craft beers and breweries\nfrom around the world")
                         .font(.subheadline)
                         .foregroundColor(Theme.textMuted)
                         .multilineTextAlignment(.center)
@@ -122,7 +122,11 @@ struct LoginView: View {
     private func signInWithApple() async {
         do {
             let result = try await appleCoordinator.signIn()
-            await auth.loginWithApple(idToken: result.idToken, fullName: result.fullName)
+            await auth.loginWithApple(
+                idToken: result.idToken,
+                fullName: result.fullName,
+                authorizationCode: result.authorizationCode
+            )
         } catch let error as AuthError where error == .cancelled {
             // User cancelled, ignore
         } catch {

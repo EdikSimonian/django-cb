@@ -6,8 +6,8 @@
 [![Python](https://img.shields.io/pypi/pyversions/django-couchbase-orm)](https://pypi.org/project/django-couchbase-orm/)
 [![License](https://img.shields.io/github/license/EdikSimonian/django-couchbase-orm)](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/LICENSE)
 
-> **Live Demo:** [django-couchbase-orm-production.up.railway.app](https://django-couchbase-orm-production.up.railway.app)
-> A full Django + Wagtail CMS + DRF beer catalog running on Couchbase Capella. Browse [beers](https://django-couchbase-orm-production.up.railway.app/beers/), read the [blog](https://django-couchbase-orm-production.up.railway.app/blog/), or explore the [Wagtail admin](https://django-couchbase-orm-production.up.railway.app/admin/).
+> **Live Demo:** [brewsync.simonian.online](https://brewsync.simonian.online)
+> A full Django + Wagtail CMS + DRF beer catalog running on Couchbase Capella. Browse [beers](https://brewsync.simonian.online/beers/), read the [blog](https://brewsync.simonian.online/blog/), or explore the [Wagtail admin](https://brewsync.simonian.online/admin/).
 
 Use Couchbase as your Django database. Drop-in backend for `django.db.models.Model` plus a standalone Document API for Couchbase-native patterns.
 
@@ -117,7 +117,7 @@ The backend transparently handles the differences between SQL and N1QL:
 
 ### Wagtail Support
 
-Wagtail CMS works fully with the Couchbase backend. See the [live demo](https://django-couchbase-orm-production.up.railway.app/admin/) for a working example.
+Wagtail CMS works fully with the Couchbase backend. See the [live demo](https://brewsync.simonian.online/admin/) for a working example.
 
 ```python
 INSTALLED_APPS = [
@@ -273,7 +273,7 @@ See [Testing Guide](https://github.com/EdikSimonian/django-couchbase-orm/blob/ma
 
 ## Example Project
 
-The [`example/`](https://github.com/EdikSimonian/django-couchbase-orm/tree/main/example) directory contains a complete Django + Wagtail + DRF project (BrewSync) deployed at the [live demo](https://django-couchbase-orm-production.up.railway.app). It includes:
+The [`example/`](https://github.com/EdikSimonian/django-couchbase-orm/tree/main/example) directory contains a complete Django + Wagtail + DRF project (BrewSync) deployed at the [live demo](https://brewsync.simonian.online). It includes:
 
 - Wagtail CMS with HomePage, BlogIndexPage, BlogPage
 - Beer catalog with Brewery/Beer models

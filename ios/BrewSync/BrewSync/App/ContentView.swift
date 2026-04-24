@@ -8,81 +8,74 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            if auth.isAuthenticated {
-                if dbReady {
-                    TabView {
-                        BeerListView()
-                            .tabItem {
-                                Label("Beers", systemImage: "mug.fill")
-                            }
-                        BreweryListView()
-                            .tabItem {
-                                Label("Breweries", systemImage: "building.2")
-                            }
-                        BlogView()
-                            .tabItem {
-                                Label("Blog", systemImage: "doc.richtext")
-                            }
-                    }
-                    .tint(Theme.accent)
-                }
-
-                if !replicator.isConnected && replicator.status != .stopped {
-                    VStack {
-                        HStack(spacing: 6) {
-                            Image(systemName: "wifi.slash")
-                                .font(.caption2)
-                            Text(replicator.status.rawValue)
-                                .font(.caption2)
+            // Browsing is available to all users — no auth gate
+            if dbReady {
+                TabView {
+                    BeerListView()
+                        .tabItem {
+                            Label("Beers", systemImage: "mug.fill")
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Theme.card)
-                        .foregroundColor(Theme.textMuted)
-                        .cornerRadius(20)
-                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.border, lineWidth: 1))
-                        Spacer()
-                    }
-                    .padding(.top, 4)
+                    BreweryListView()
+                        .tabItem {
+                            Label("Breweries", systemImage: "building.2")
+                        }
+                    BlogView()
+                        .tabItem {
+                            Label("Blog", systemImage: "doc.richtext")
+                        }
                 }
-            } else {
-                LoginView()
+                .tint(Theme.accent)
+            }
+
+            // Show sync status while connecting (both guest and authenticated)
+            if !replicator.isConnected && replicator.status != .stopped {
+                VStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wifi.slash")
+                            .font(.caption2)
+                        Text(replicator.status.rawValue)
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Theme.card)
+                    .foregroundColor(Theme.textMuted)
+                    .cornerRadius(20)
+                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.border, lineWidth: 1))
+                    Spacer()
+                }
+                .padding(.top, 4)
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
             Database.log.console.domains = .all
             Database.log.console.level = .warning
-            // Initialize DB and show cached data immediately
             try? DatabaseManager.shared.initialize()
-            if auth.isAuthenticated {
-                dbReady = true
-            }
+            dbReady = true
         }
         .task {
-            if auth.isAuthenticated {
-                // Sync in the background — UI already shows cached data
-                await startReplicator()
-            }
+            // Always sync via App Services — guest (pull-only) when logged
+            // out, authenticated (push+pull) once the user signs in.
+            await startReplicator()
         }
-        .onChange(of: auth.isAuthenticated) { authenticated in
-            if authenticated {
-                try? DatabaseManager.shared.initialize()
-                dbReady = true
-                Task { await startReplicator() }
-            } else {
-                ReplicatorManager.shared.stop()
-                dbReady = false
-            }
+        .onChange(of: auth.isAuthenticated) { _ in
+            // Restart the replicator with the new auth context. The replicator's
+            // per-doc listener (in ReplicatorManager) will purge any local doc
+            // the new context can't push, so we don't need to wipe the DB.
+            Task { await startReplicator() }
         }
     }
 
     private func startReplicator() async {
-        if let session = await AuthManager.shared.refreshSession() {
-            ReplicatorManager.shared.start(sessionID: session)
-        } else {
-            print("[App] Session refresh failed, need re-login")
+        if auth.isAuthenticated {
+            if let token = await AuthManager.shared.currentIdToken() {
+                ReplicatorManager.shared.start(idToken: token)
+                return
+            }
+            print("[App] No usable id_token, falling back to guest sync")
             AuthManager.shared.logout()
         }
+        ReplicatorManager.shared.start(idToken: nil)
     }
 }

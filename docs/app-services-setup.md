@@ -5,7 +5,7 @@ Step-by-step guide to configure App Services for BrewSync mobile sync.
 ## Prerequisites
 
 - Couchbase Capella cluster with `beer-sample` bucket
-- Django OIDC provider deployed (verify: `https://django-couchbase-orm-production.up.railway.app/o/.well-known/openid-configuration/`)
+- Django OIDC provider deployed (verify: `https://brewsync.simonian.online/o/.well-known/openid-configuration/`)
 
 ## 1. Enable App Services
 
@@ -22,9 +22,9 @@ Step-by-step guide to configure App Services for BrewSync mobile sync.
 2. Click **Add Provider** → **OpenID Connect**
 3. Configure:
    - **Name**: `django`
-   - **Issuer**: `https://django-couchbase-orm-production.up.railway.app/o`
+   - **Issuer**: `https://brewsync.simonian.online/o`
    - **Client ID**: `brewsync-ios`
-   - **Discovery URL**: `https://django-couchbase-orm-production.up.railway.app/o/.well-known/openid-configuration/`
+   - **Discovery URL**: `https://brewsync.simonian.online/o/.well-known/openid-configuration/`
    - **Register**: Disabled (users pre-registered via Django)
 4. Under **Role Mapping**:
    - **Roles Claim**: `groups`

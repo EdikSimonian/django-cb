@@ -85,9 +85,22 @@ REST_FRAMEWORK = {
 }
 
 # --- OIDC Provider (django-oauth-toolkit) ---
+# RSA key can come from a file (OIDC_RSA_PRIVATE_KEY_PATH) or env string
+# (OIDC_RSA_PRIVATE_KEY). File is preferred for Docker/Compose hosts where
+# env_file doesn't handle multi-line PEM values.
+def _load_oidc_rsa_private_key():
+    path = os.environ.get("OIDC_RSA_PRIVATE_KEY_PATH", "")
+    if path:
+        try:
+            with open(path) as _f:
+                return _f.read()
+        except OSError:
+            pass
+    return os.environ.get("OIDC_RSA_PRIVATE_KEY", "")
+
 OAUTH2_PROVIDER = {
     "OIDC_ENABLED": True,
-    "OIDC_RSA_PRIVATE_KEY": os.environ.get("OIDC_RSA_PRIVATE_KEY", ""),
+    "OIDC_RSA_PRIVATE_KEY": _load_oidc_rsa_private_key(),
     "SCOPES": {
         "openid": "OpenID Connect",
         "profile": "User profile",

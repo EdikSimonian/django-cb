@@ -41,6 +41,20 @@ class BeerDetailViewModel: ObservableObject {
         // Load ratings
         ratings = DatabaseManager.shared.getRatings(forBeer: beer.id)
 
+        // Always recompute avg/count from the local ratings we actually have,
+        // ignoring whatever stale value is on the beer doc. The server-side
+        // avg_rating is only updated by a backend recompute job, so trusting
+        // it here would clobber the user's optimistic update on every refresh
+        // tick — causing the visible "flash back to old value" race.
+        if !ratings.isEmpty {
+            let total = ratings.reduce(0) { $0 + $1.score }
+            beer.avgRating = Double(total) / Double(ratings.count)
+            beer.ratingCount = ratings.count
+        } else {
+            beer.avgRating = 0
+            beer.ratingCount = 0
+        }
+
         // Load current user's rating
         if auth.isAuthenticated, !auth.username.isEmpty {
             if let existing = DatabaseManager.shared.getUserRating(

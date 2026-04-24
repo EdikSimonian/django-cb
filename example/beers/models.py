@@ -86,6 +86,24 @@ class Beer(models.Model):
         super().save(**kwargs)
 
 
+class AppleCredential(models.Model):
+    """Apple refresh token stored so we can revoke the user's session with
+    Apple when they delete their account (App Store guideline 5.1.1(v))."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="apple_credential",
+    )
+    apple_sub = models.CharField(max_length=255, unique=True)
+    refresh_token = models.CharField(max_length=512)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Apple credential for {self.user.username}"
+
+
 class Rating(models.Model):
     objects = SyncSafeManager()
 

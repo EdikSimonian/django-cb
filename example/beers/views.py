@@ -18,7 +18,7 @@ from rest_framework import permissions, serializers as drf_serializers, status, 
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Beer, Brewery, Rating
+from .models import AppleCredential, Beer, Brewery, Rating
 from .serializers import BeerSerializer, BrewerySerializer, RatingSerializer, RegisterSerializer
 
 
@@ -112,12 +112,23 @@ class DeleteAccountView(APIView):
 
     def delete(self, request):
         user = request.user
-        if user.is_superuser or user.groups.filter(name="admin").exists():
-            return Response(
-                {"error": "Admin accounts cannot be deleted from the app."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         username = user.username
+        # Revoke Apple session so the user disappears from iOS Settings →
+        # Apple ID → Sign in with Apple (required by App Store 5.1.1(v)).
+        # Best-effort: if it fails, we still delete the local account.
+        apple_cred = AppleCredential.objects.filter(user=user).first()
+        if apple_cred:
+            try:
+                _apple_revoke(apple_cred.refresh_token)
+                print(f"[Apple] Revoke OK for {username}")
+            except Exception as exc:
+                print(f"[Apple] Revoke failed for {username}: {exc}")
+        elif username.startswith("apple_"):
+            print(
+                f"[Apple] No stored refresh_token for {username} — cannot revoke "
+                "Apple session. Check APPLE_TEAM_ID/APPLE_KEY_ID/APPLE_PRIVATE_KEY "
+                "env vars and that iOS sent authorization_code at sign-in."
+            )
         # Delete user's ratings and recompute affected beers
         from django.db import connection
         cursor = connection.cursor()
@@ -129,7 +140,7 @@ class DeleteAccountView(APIView):
         # Revoke all OAuth tokens
         AccessToken.objects.filter(user=user).delete()
         RefreshToken.objects.filter(user=user).delete()
-        # Delete the user
+        # Delete the user (cascades AppleCredential)
         user.delete()
         return Response({"detail": "Account deleted"}, status=status.HTTP_200_OK)
 
@@ -249,13 +260,32 @@ def _get_or_create_social_user(provider, social_id, email, full_name):
                 email=email or "",
                 password=None,  # No password — social-only account
             )
-            if full_name:
-                parts = full_name.split(" ", 1)
-                user.first_name = parts[0]
-                if len(parts) > 1:
-                    user.last_name = parts[1]
-                user.save(update_fields=["first_name", "last_name"])
+    # Populate first/last name the first time we learn it. Apple only sends
+    # full_name on the very first sign-in, so we must not skip the update
+    # just because the user record already existed from a prior attempt.
+    # Note: save(update_fields=...) is a silent no-op on the Couchbase
+    # backend — must save the full instance.
+    if full_name and not (user.first_name or user.last_name):
+        parts = full_name.split(" ", 1)
+        user.first_name = parts[0].strip()
+        if len(parts) > 1:
+            user.last_name = parts[1].strip()
+        user.save()
     return user
+
+
+def _display_name_for(user):
+    """Human-friendly display name for the id_token `name` claim."""
+    full = f"{user.first_name} {user.last_name}".strip()
+    if full:
+        return full
+    # Fall back to email local part, unless it's an Apple private-relay alias
+    # (those look like `72jfv6626t@privaterelay.appleid.com` — opaque).
+    if user.email and "@privaterelay.appleid.com" not in user.email:
+        local = user.email.split("@", 1)[0]
+        if local:
+            return local
+    return user.username
 
 
 def _issue_oidc_tokens(user):
@@ -329,6 +359,7 @@ def _issue_oidc_tokens(user):
         "jti": str(uuid.uuid4()),
         # Custom claims (from get_additional_claims)
         "preferred_username": user.username,
+        "name": _display_name_for(user),
         "email": user.email,
         "groups": groups,
     }
@@ -383,15 +414,45 @@ class SocialTokenExchangeView(APIView):
                 )
 
             user = _get_or_create_social_user(provider, social_id, email, full_name)
+
+            # For Apple: if we received an authorization_code, exchange it for
+            # Apple's refresh token and store it. We need this at account-
+            # deletion time to revoke the user's Apple session (5.1.1(v)).
+            # Best-effort — a missing refresh_token here just means revoke
+            # won't work for this user. Don't fail the login.
+            if provider == "apple":
+                auth_code = request.data.get("authorization_code", "")
+                if not auth_code:
+                    print(f"[Apple] No authorization_code in sign-in payload for {user.username}")
+                else:
+                    try:
+                        apple_refresh = _apple_exchange_code(auth_code)
+                        if apple_refresh:
+                            AppleCredential.objects.update_or_create(
+                                user=user,
+                                defaults={
+                                    "apple_sub": social_id,
+                                    "refresh_token": apple_refresh,
+                                },
+                            )
+                            print(f"[Apple] Stored refresh_token for {user.username}")
+                        else:
+                            print(f"[Apple] Code exchange returned no refresh_token for {user.username}")
+                    except Exception as exc:
+                        print(f"[Apple] Code exchange failed for {user.username}: {exc}")
+
             tokens = _issue_oidc_tokens(user)
             return Response(tokens)
 
-        except ValueError:
+        except ValueError as exc:
+            print(f"[Social] Invalid credentials ({provider}): {exc}")
             return Response(
                 {"error": "Invalid credentials"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-        except Exception:
+        except Exception as exc:
+            import traceback
+            print(f"[Social] Auth failed ({provider}): {exc}\n{traceback.format_exc()}")
             return Response(
                 {"error": "Authentication failed"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -450,3 +511,75 @@ class SocialTokenExchangeView(APIView):
             raise ValueError("Google token audience mismatch")
 
         return claims["sub"], claims.get("email", "")
+
+
+# --- Apple token revocation helpers (App Store 5.1.1(v) compliance) ---
+
+def _apple_client_secret():
+    """Build the short-lived JWT Apple requires as client_secret for
+    /auth/token and /auth/revoke. Signed with the .p8 ES256 key from
+    App Store Connect. Returns None if env is not configured."""
+    team_id = os.environ.get("APPLE_TEAM_ID")
+    key_id = os.environ.get("APPLE_KEY_ID")
+    private_key = os.environ.get("APPLE_PRIVATE_KEY", "").replace("\\n", "\n")
+    # For native iOS Sign In with Apple, client_id is the app bundle ID.
+    client_id = os.environ.get("APPLE_APP_ID", "com.brewsync.app")
+
+    if not (team_id and key_id and private_key):
+        return None
+
+    now = int(time.time())
+    claims = {
+        "iss": team_id,
+        "iat": now,
+        "exp": now + 15777000,  # ~6 months, Apple's max
+        "aud": "https://appleid.apple.com",
+        "sub": client_id,
+    }
+    return jwt.encode(claims, private_key, algorithm="ES256", headers={"kid": key_id})
+
+
+def _apple_exchange_code(authorization_code):
+    """Exchange an Apple authorizationCode for an Apple refresh_token.
+    We store the refresh_token so we can later call /auth/revoke when the
+    user deletes their account. Returns None if Apple keys aren't configured."""
+    client_secret = _apple_client_secret()
+    if not client_secret:
+        return None
+
+    client_id = os.environ.get("APPLE_APP_ID", "com.brewsync.app")
+    resp = requests.post(
+        "https://appleid.apple.com/auth/token",
+        data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "code": authorization_code,
+            "grant_type": "authorization_code",
+        },
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise ValueError(f"Apple token exchange failed: {resp.status_code} {resp.text}")
+    return resp.json().get("refresh_token")
+
+
+def _apple_revoke(refresh_token):
+    """Revoke an Apple refresh token so the user disappears from iOS
+    Settings → Apple ID → Sign in with Apple."""
+    client_secret = _apple_client_secret()
+    if not client_secret:
+        raise ValueError("Apple keys not configured")
+
+    client_id = os.environ.get("APPLE_APP_ID", "com.brewsync.app")
+    resp = requests.post(
+        "https://appleid.apple.com/auth/revoke",
+        data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "token": refresh_token,
+            "token_type_hint": "refresh_token",
+        },
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise ValueError(f"Apple revoke failed: {resp.status_code} {resp.text}")

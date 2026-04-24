@@ -32,6 +32,7 @@ urlpatterns = [
     path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
     # Static pages
     path("privacy/", TemplateView.as_view(template_name="privacy.html"), name="privacy"),
+    path("support/", TemplateView.as_view(template_name="support.html"), name="support"),
     # Sitemap
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="sitemap"),
     # Beer app (API + web UI)

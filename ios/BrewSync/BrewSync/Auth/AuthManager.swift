@@ -8,13 +8,14 @@ import WebKit
 class AuthManager: NSObject, ObservableObject {
     static let shared = AuthManager()
 
-    private let djangoURL = "https://django-couchbase-orm-production.up.railway.app"
+    private let djangoURL = "https://brewsync.simonian.online"
     private let appServicesURL = "https://lcqfknrvnr1vpm5x.apps.cloud.couchbase.com:4984/brewsync"
     private let clientId = "brewsync-ios"
     private let redirectURI = "brewsync://callback"
 
     @Published var isAuthenticated = false
     @Published var username: String = ""
+    @Published var displayName: String = ""
     @Published var userId: Int = 0
     @Published var isAdmin: Bool = false
     @Published var isLoading = false
@@ -28,47 +29,34 @@ class AuthManager: NSObject, ObservableObject {
            KeychainHelper.load(key: "id_token") != nil {
             self.isAuthenticated = true
             self.username = name
+            self.displayName = KeychainHelper.load(key: "display_name") ?? name
             self.userId = Int(KeychainHelper.load(key: "user_id") ?? "0") ?? 0
             self.isAdmin = KeychainHelper.load(key: "groups")?.contains("admin") ?? false
         }
     }
 
-    // MARK: - Refresh session on app launch
+    // MARK: - Current ID token (for replicator Bearer auth)
 
-    /// Get a fresh App Services session using the stored ID token.
-    /// Call this on every app launch before starting the replicator.
-    func refreshSession() async -> String? {
+    /// Returns a usable Django OIDC ID token for the current user, refreshing
+    /// it via the refresh token if expired. Returns nil if there's no stored
+    /// token at all or refresh fails (caller should logout in that case).
+    /// The replicator uses this directly via `Authorization: Bearer <jwt>`
+    /// — no `_session` cookie exchange needed.
+    func currentIdToken() async -> String? {
         guard let idToken = KeychainHelper.load(key: "id_token") else {
-            print("[Auth] No stored ID token, need full login")
+            print("[Auth] No stored ID token")
             return nil
         }
-
-        // Check if ID token is expired
         if isTokenExpired(idToken) {
-            print("[Auth] ID token expired, need full login")
-            // Try refresh token first
+            print("[Auth] ID token expired, attempting refresh")
             if let newIdToken = await refreshDjangoToken() {
-                print("[Auth] Refreshed Django tokens")
                 parseIdToken(newIdToken)
                 KeychainHelper.save(key: "id_token", value: newIdToken)
-                return await getNewSession(idToken: newIdToken)
+                return newIdToken
             }
             return nil
         }
-
-        return await getNewSession(idToken: idToken)
-    }
-
-    private func getNewSession(idToken: String) async -> String? {
-        do {
-            let session = try await getAppServicesSession(idToken: idToken)
-            KeychainHelper.save(key: "sync_session", value: session)
-            print("[Auth] Got fresh session: \(session.prefix(20))...")
-            return session
-        } catch {
-            print("[Auth] Failed to refresh session: \(error)")
-            return nil
-        }
+        return idToken
     }
 
     private func isTokenExpired(_ token: String) -> Bool {
@@ -175,11 +163,6 @@ class AuthManager: NSObject, ObservableObject {
             }
 
             parseIdToken(tokens.idToken)
-
-            let sessionID = try await getAppServicesSession(idToken: tokens.idToken)
-            print("[Auth] Got App Services session: \(sessionID.prefix(20))...")
-
-            KeychainHelper.save(key: "sync_session", value: sessionID)
             isAuthenticated = true
 
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
@@ -285,6 +268,12 @@ class AuthManager: NSObject, ObservableObject {
             username = sub
             KeychainHelper.save(key: "username", value: sub)
         }
+        if let name = claims["name"] as? String, !name.isEmpty {
+            displayName = name
+            KeychainHelper.save(key: "display_name", value: name)
+        } else {
+            displayName = username
+        }
     }
 
     // MARK: - Registration
@@ -309,7 +298,7 @@ class AuthManager: NSObject, ObservableObject {
 
     // MARK: - Sign in with Apple
 
-    func loginWithApple(idToken: String, fullName: String?) async {
+    func loginWithApple(idToken: String, fullName: String?, authorizationCode: String?) async {
         isLoading = true
         error = nil
 
@@ -317,7 +306,8 @@ class AuthManager: NSObject, ObservableObject {
             let tokens = try await exchangeSocialToken(
                 provider: "apple",
                 idToken: idToken,
-                fullName: fullName
+                fullName: fullName,
+                authorizationCode: authorizationCode
             )
             try await finishSocialLogin(tokens: tokens)
         } catch {
@@ -351,7 +341,12 @@ class AuthManager: NSObject, ObservableObject {
 
     // MARK: - Social token exchange
 
-    private func exchangeSocialToken(provider: String, idToken: String, fullName: String?) async throws -> FullTokenResponse {
+    private func exchangeSocialToken(
+        provider: String,
+        idToken: String,
+        fullName: String?,
+        authorizationCode: String? = nil
+    ) async throws -> FullTokenResponse {
         let url = URL(string: "\(djangoURL)/api/auth/social/")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -363,6 +358,9 @@ class AuthManager: NSObject, ObservableObject {
         ]
         if let fullName = fullName, !fullName.isEmpty {
             body["full_name"] = fullName
+        }
+        if let authorizationCode = authorizationCode, !authorizationCode.isEmpty {
+            body["authorization_code"] = authorizationCode
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -384,11 +382,8 @@ class AuthManager: NSObject, ObservableObject {
         }
 
         parseIdToken(tokens.idToken)
-
-        let sessionID = try await getAppServicesSession(idToken: tokens.idToken)
-        KeychainHelper.save(key: "sync_session", value: sessionID)
         isAuthenticated = true
-        print("[Auth] Social login complete, session: \(sessionID.prefix(20))...")
+        print("[Auth] Social login complete (id_token len=\(tokens.idToken.count))")
     }
 
     // MARK: - Delete Account
@@ -408,8 +403,10 @@ class AuthManager: NSObject, ObservableObject {
             let body = String(data: data, encoding: .utf8) ?? "Delete failed"
             throw AuthError.serverError(body)
         }
-
-        logout()
+        // Caller must sequence: stop replicator → deleteAccount() → reset local
+        // DB → reinitialize DB → logout(). If we logout() here, the auth flip
+        // races ahead of the DB reset and the guest replicator restarts on a
+        // DB that's about to be wiped.
     }
 
     // MARK: - Logout
@@ -419,6 +416,7 @@ class AuthManager: NSObject, ObservableObject {
         clearWebSessionCookies()
         isAuthenticated = false
         username = ""
+        displayName = ""
         userId = 0
         isAdmin = false
     }
@@ -445,7 +443,11 @@ class AuthManager: NSObject, ObservableObject {
 
 extension AuthManager: ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        ASPresentationAnchor()
+        // Use the real key window so presentation works on iPad.
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first(where: { $0.isKeyWindow }) ?? ASPresentationAnchor()
     }
 }
 

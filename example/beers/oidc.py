@@ -16,6 +16,7 @@ class CustomOIDCValidator(OAuth2Validator):
         user = request.user
         return {
             "preferred_username": user.username,
+            "name": _display_name(user),
             "email": user.email,
             "groups": list(user.groups.values_list("name", flat=True)),
         }
@@ -25,6 +26,7 @@ class CustomOIDCValidator(OAuth2Validator):
         claims = {
             "sub": user.username,
             "preferred_username": user.username,
+            "name": _display_name(user),
             "email": user.email,
             "groups": list(user.groups.values_list("name", flat=True)),
         }
@@ -33,3 +35,14 @@ class CustomOIDCValidator(OAuth2Validator):
         if user.last_name:
             claims["family_name"] = user.last_name
         return claims
+
+
+def _display_name(user):
+    full = f"{user.first_name} {user.last_name}".strip()
+    if full:
+        return full
+    if user.email and "@privaterelay.appleid.com" not in user.email:
+        local = user.email.split("@", 1)[0]
+        if local:
+            return local
+    return user.username

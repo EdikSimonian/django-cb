@@ -11,6 +11,14 @@ class ReplicatorManager: ObservableObject {
 
     private var replicator: Replicator?
     private var listenerToken: ListenerToken?
+    private var docListenerToken: ListenerToken?
+    /// Tracks whether the currently running replicator was started with a
+    /// session (authenticated) vs as guest. The per-doc listener uses this
+    /// to decide whether a push rejection is a legitimate orphan (purge) or
+    /// an auth-misconfiguration (keep, log loudly).
+    private var startedAuthenticated: Bool = false
+
+    @Published var lastPushError: String?
 
     @Published var status: ReplicatorStatus = .stopped
     @Published var isConnected: Bool = false
@@ -30,8 +38,17 @@ class ReplicatorManager: ObservableObject {
         URL(string: "\(appServicesHTTPS)/_oidc?provider=\(oidcProviderName)&offline=true")
     }
 
-    /// Start replication with a session ID obtained from App Services OIDC flow
-    func start(sessionID: String? = nil) {
+    /// Start replication.
+    /// - Pass an `idToken` (Django OIDC JWT) to sync as an authenticated user
+    ///   (push + pull). The token is sent via `Authorization: Bearer <jwt>`
+    ///   on the WebSocket upgrade. App Services validates the JWT against
+    ///   Django's JWKS on every connection — no `_session` exchange needed.
+    /// - Pass `nil` to sync as the GUEST user (pull-only, anonymous browsing).
+    func start(idToken: String? = nil) {
+        // Stop any existing replicator before starting a new one so we can
+        // cleanly switch between guest and authenticated modes.
+        stop()
+
         guard DatabaseManager.shared.database != nil else {
             print("[Replicator] Database not initialized")
             return
@@ -39,16 +56,8 @@ class ReplicatorManager: ObservableObject {
 
         guard let url = URL(string: appServicesWSS) else { return }
 
-        // Use provided session or try stored one
-        let session = sessionID ?? KeychainHelper.load(key: "sync_session")
-        guard let session = session, !session.isEmpty else {
-            print("[Replicator] No sync session available")
-            status = .error
-            return
-        }
-
-        // Save for reconnection
-        KeychainHelper.save(key: "sync_session", value: session)
+        let token = idToken
+        let hasToken = !(token ?? "").isEmpty
 
         let endpoint = URLEndpoint(url: url)
         var collections: [Collection] = []
@@ -59,12 +68,20 @@ class ReplicatorManager: ObservableObject {
         print("[Replicator] Syncing \(collections.count) collections")
 
         var config = ReplicatorConfiguration(target: endpoint)
-        config.replicatorType = .pushAndPull
+        // Guest can only pull; authenticated users push + pull.
+        config.replicatorType = hasToken ? .pushAndPull : .pull
         config.continuous = true
         config.addCollections(collections)
-        config.authenticator = SessionAuthenticator(sessionID: session, cookieName: "SyncGatewaySession")
-
-        print("[Replicator] Starting with session: \(session.prefix(20))...")
+        startedAuthenticated = hasToken
+        if hasToken, let token = token {
+            // Bearer JWT auth on the WebSocket upgrade. App Services validates
+            // it against Django's JWKS. This is the *same* mechanism every
+            // REST endpoint accepts — see the iOS test writes earlier.
+            config.headers = ["Authorization": "Bearer \(token)"]
+            print("[Replicator] >>> START mode=PUSH+PULL (authenticated), idToken=\(token.prefix(12))...\(token.suffix(8)) len=\(token.count)")
+        } else {
+            print("[Replicator] >>> START mode=PULL-ONLY (guest, no token)")
+        }
         print("[Replicator] Collections: \(collections.map { $0.name })")
 
         replicator = Replicator(config: config)
@@ -109,14 +126,71 @@ class ReplicatorManager: ObservableObject {
             }
         }
 
+        // Per-document push-failure handler. Only purges in cases where the
+        // doc is genuinely an orphan that the current auth context can never
+        // push. If we're authenticated and the server still rejects, that's
+        // an auth bug — DO NOT purge (we'd lose the user's rating). Surface
+        // it loudly so we notice instead of silently retrying forever.
+        docListenerToken = replicator?.addDocumentReplicationListener { [weak self] replication in
+            guard let self = self, replication.isPush else { return }
+            for doc in replication.documents {
+                guard let error = doc.error as NSError? else { continue }
+                let msg = error.localizedDescription
+                let isReadOnly = msg.contains("read-only") || msg.contains("read only")
+                let isWrongUser = msg.contains("wrong user") || msg.contains("missing role")
+
+                if !self.startedAuthenticated && isReadOnly {
+                    // Guest mode replicator picked up a stray local write.
+                    // Safe to purge — guest can never push anything.
+                    print("[Replicator] Orphan in guest mode, purging \(doc.id): \(msg)")
+                    self.purgeLocalDoc(id: doc.id, scope: doc.scope, collectionName: doc.collection)
+                } else if self.startedAuthenticated && isWrongUser {
+                    // Authenticated, but the doc belongs to a different user.
+                    // The current user can never push it. Purge.
+                    print("[Replicator] Cross-user orphan, purging \(doc.id): \(msg)")
+                    self.purgeLocalDoc(id: doc.id, scope: doc.scope, collectionName: doc.collection)
+                } else if self.startedAuthenticated && isReadOnly {
+                    // We THINK we're authed but the server says we're not.
+                    // This is the bug we need to surface — the session cookie
+                    // isn't being honored. DO NOT purge; the user's rating is
+                    // legitimate. Tell whoever is listening.
+                    print("[Replicator] ⚠️ AUTH GLITCH: replicator started authenticated but server returned read-only for \(doc.id). The session cookie is stale or malformed. Doc kept locally.")
+                    DispatchQueue.main.async { self.lastPushError = "Session expired — please log out and back in" }
+                } else {
+                    // Some other push failure. Log but don't purge.
+                    print("[Replicator] Push failed for \(doc.id) (kept locally): \(msg)")
+                    DispatchQueue.main.async { self.lastPushError = msg }
+                }
+            }
+        }
+
         replicator?.start()
         status = .connecting
+    }
+
+    /// Purge a single doc from its local collection by id. Used by the per-doc
+    /// replication listener when the server permanently rejects a push, so we
+    /// don't accumulate orphan local writes that retry forever.
+    private func purgeLocalDoc(id: String, scope: String, collectionName: String) {
+        guard let db = DatabaseManager.shared.database else { return }
+        do {
+            guard let collection = try db.collection(name: collectionName, scope: scope) else { return }
+            if let doc = try collection.document(id: id) {
+                try collection.purge(document: doc)
+            }
+        } catch {
+            print("[Replicator] Failed to purge \(id): \(error)")
+        }
     }
 
     func stop() {
         if let token = listenerToken {
             token.remove()
             listenerToken = nil
+        }
+        if let token = docListenerToken {
+            token.remove()
+            docListenerToken = nil
         }
         replicator?.stop()
         replicator = nil

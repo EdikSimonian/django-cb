@@ -21,14 +21,18 @@ targets:
           - Info.plist
     entitlements:
       path: BrewSync/BrewSync.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.brewsync.app
         MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 4
         SWIFT_VERSION: "5.9"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_ENTITLEMENTS: BrewSync/BrewSync.entitlements
+        DEVELOPMENT_TEAM: U8L62AM7NK
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_FILE: BrewSync/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: BrewSync
@@ -36,6 +40,9 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: "NO"
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: "NO"
     dependencies:
       - package: CouchbaseLiteSwift
         product: CouchbaseLiteSwift
