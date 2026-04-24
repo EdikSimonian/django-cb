@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/django-couchbase-orm)](https://pypi.org/project/django-couchbase-orm/)
 [![License](https://img.shields.io/github/license/EdikSimonian/django-couchbase-orm)](https://github.com/EdikSimonian/django-couchbase-orm/blob/main/LICENSE)
 
-> **Live Demo:** [brewsync.simonian.online](https://brewsync.simonian.online)
+> **Live Demo:** [brewsync.simonian.online](https://brewsync.simonian.online) · [iOS app](https://apps.apple.com/us/app/brewsync-catalog/id6761658679)
 > A full Django + Wagtail CMS + DRF beer catalog running on Couchbase Capella. Browse [beers](https://brewsync.simonian.online/beers/), read the [blog](https://brewsync.simonian.online/blog/), or explore the [Wagtail admin](https://brewsync.simonian.online/admin/).
 
 Use Couchbase as your Django database. Drop-in backend for `django.db.models.Model` plus a standalone Document API for Couchbase-native patterns.
